@@ -1,0 +1,79 @@
+---
+description: Expo SDK 54 UI Rules – Glass Effect & Native Tabs
+globs: ["**/*.tsx", "**/*.jsx"]
+alwaysApply: true
+
+---
+
+rules:
+  general:
+    - Follow Expo SDK 54 conventions for modern UI components.
+    - Prefer native iOS glass and native tab navigation when available.
+    - Provide graceful fallbacks for Android and older iOS versions.
+    - Maintain accessibility, performance, and consistent design language across both modules.
+
+  expo-glass-effect:
+    installation:
+      - Install using: npx expo install expo-glass-effect
+      - Import components: GlassView, GlassContainer, isLiquidGlassAvailable
+    usage:
+      - Use GlassView for individual glass surfaces and GlassContainer for grouped layouts.
+      - Use isLiquidGlassAvailable() to check availability before rendering.
+      - Set glassEffectStyle: "regular" (default) or "clear".
+      - Optionally define tintColor for overlay tint and isInteractive for interactivity on iOS 26+.
+    requirements:
+      - Requires iOS 26+ for native liquid glass support.
+      - Requires Dev Build or EAS Build; not supported in Expo Go.
+    must:
+      - Must provide fallback View with semi-transparent background on unsupported platforms.
+      - Must ensure text contrast and readability over blurred backgrounds.
+    should:
+      - Should maintain consistent padding and borderRadius with app design system.
+      - Should avoid stacking multiple glass layers to maintain performance.
+      - Should not toggle isInteractive dynamically; it requires remounting.
+    optional:
+      - Optional to use GlassContainer for multiple combined glass elements.
+    design:
+      - Maintain subtle tint (rgba(255,255,255,0.2–0.3)) for balanced aesthetic.
+      - Use for overlays, cards, headers, and tab bars; avoid full-screen use.
+      - Ensure visual consistency across all blurred UI components.
+
+  expo-router-native-tabs:
+    installation:
+      - Install using: npx expo install expo-router
+      - Enable plugin in app.json: "plugins": ["expo-router"]
+      - Import NativeTabs from expo-router/unstable-native-tabs
+    usage:
+      - Place layout file under app/(tabs)/_layout.tsx
+      - Define NativeTabs with multiple NativeTabs.Screen components.
+    configuration:
+      - backBehavior: "history" | "none" | "initialRoute"
+      - blurEffect: "systemDefault" | "regular" | "prominent" | "dark" | "light"
+      - minimizeBehavior: "automatic" | "never" | "onScrollDown" | "onScrollUp"
+      - disableTransparentOnScrollEdge: boolean
+      - labelVisibilityMode: "auto" | "selected" | "labeled" | "unlabeled"
+      - Customizable properties: backgroundColor, indicatorColor, iconColor, labelStyle
+    must:
+      - Must follow expo-router directory structure with (tabs)/_layout.tsx.
+      - Must enable expo-router plugin in app configuration.
+    should:
+      - Should use blurEffect on iOS to match glass aesthetic.
+      - Should set minimizeBehavior to "automatic" for iOS 26+.
+      - Should not mix NativeTabs with other navigation systems in the same layout.
+      - Should maintain icon and label consistency across all tabs.
+    optional:
+      - Optional to use disableTransparentOnScrollEdge for opaque tab bar.
+      - Optional to adjust colors to align with app theme.
+    design:
+      - Match glass tint and blur intensity with expo-glass-effect elements.
+      - Maintain accessibility with proper label contrast and readable text.
+      - Prefer solid backgrounds on Android for clarity and performance.
+
+  combined-guidelines:
+    - Use expo-glass-effect for content surfaces (cards, overlays, headers).
+    - Use expo-router-native-tabs for navigation with glass-like tab bars.
+    - Keep tintColor and blurEffect consistent for unified visual design.
+    - Test performance and readability across devices before production.
+    - Provide fallback UI for devices not supporting glass or blur effects.
+    - Ensure accessibility and legibility remain uncompromised.
+    - Maintain identical spacing, elevation, and color balance across UI elements.

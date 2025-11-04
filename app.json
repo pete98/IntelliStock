@@ -4,7 +4,7 @@
     "slug": "IntelliStock",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/Intellistock.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -21,10 +21,21 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.pranav1998.IntelliStock"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow IntelliStock to access your camera to scan barcodes",
+          "microphonePermission": "Allow IntelliStock to access your microphone for video recording",
+          "recordAudioAndroid": true
+        }
+      ]
+    ]
   }
 }
