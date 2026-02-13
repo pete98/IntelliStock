@@ -28,6 +28,7 @@ import { WeightUnitPicker } from '@/components/WeightUnitPicker';
 import { theme } from '@/config/theme';
 import { handleApiError, showSuccessToast } from '@/utils/errorHandler';
 import { inventoryItemSchema, InventoryItemFormData } from '@/utils/validation';
+import { parseWeight, mapCategoryToCode, extractLabels } from '@/utils/upcMapping';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'ItemForm'>;
 type RouteParams = RouteProp<RootStackParamList, 'ItemForm'>;
@@ -76,7 +77,7 @@ export default function ItemFormScreen() {
       modifiers: '',
       labels: '',
       taxRate: 6.625,
-      taxEnabled: false,
+      taxEnabled: true,
       fees: '',
       description: '',
       imageUrl: '',
@@ -152,6 +153,7 @@ export default function ItemFormScreen() {
       calories: data.calories || undefined,
       weight: data.weight || undefined,
       weightUnit: data.weightUnit || undefined,
+      popularityScore: data.popularityScore ?? undefined,
     };
 
     if (isEdit && itemId) {
@@ -159,14 +161,20 @@ export default function ItemFormScreen() {
         { id: itemId, data: payload },
         {
           onSuccess: () => {
-            navigation.navigate('InventoryList');
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'InventoryList' }],
+            });
           },
         }
       );
     } else {
       createMutation.mutate(payload, {
         onSuccess: () => {
-          navigation.navigate('InventoryList');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'InventoryList' }],
+          });
         },
       });
     }
@@ -181,104 +189,101 @@ export default function ItemFormScreen() {
 
   const handleAiAssist = async () => {
     const currentValues = getValues();
-    const itemName = currentValues.itemName?.trim();
-    const categoryCode = currentValues.categories?.trim();
+    const productCode = currentValues.productCode?.trim();
 
-    // Validate required fields
-    if (!itemName) {
-      setError('itemName', {
+    // Validate required field
+    if (!productCode) {
+      setError('productCode', {
         type: 'manual',
-        message: 'Item name is required for AI enrichment',
+        message: 'Product code (UPC) is required for AI enrichment',
       });
       Toast.show({
         type: 'error',
-        text1: 'Item Name Required',
-        text2: 'Please enter an item name before using AI assist',
-      });
-      return;
-    }
-
-    if (!categoryCode) {
-      setError('categories', {
-        type: 'manual',
-        message: 'Category is required for AI enrichment',
-      });
-      Toast.show({
-        type: 'error',
-        text1: 'Category Required',
-        text2: 'Please select a category before using AI assist',
-      });
-      return;
-    }
-
-    // Find category display name from code
-    const selectedCategory = categories?.find((cat) => cat.code === categoryCode);
-    if (!selectedCategory) {
-      Toast.show({
-        type: 'error',
-        text1: 'Category Not Found',
-        text2: 'Please select a valid category',
+        text1: 'Product Code Required',
+        text2: 'Please enter or scan a product code (UPC) before using AI assist',
       });
       return;
     }
 
     setIsAiLoading(true);
     try {
-      // Prepare enrich request payload
-      const enrichPayload: {
-        itemName: string;
-        category: string;
-        subCategory?: string;
-        brand?: string;
-      } = {
-        itemName,
-        category: selectedCategory.displayName,
-      };
+      // Call UPC Item DB API
+      const response = await inventoryService.lookupUpcItem(productCode);
 
-      // Add optional fields if they exist
-      // For subcategory, find the display name from subcategories
-      if (currentValues.subCategory?.trim()) {
-        const selectedSubcategory = subcategories?.find(
-          (sub) => sub.code === currentValues.subCategory
-        );
-        enrichPayload.subCategory = selectedSubcategory?.displayName || currentValues.subCategory.trim();
-      }
-      if (currentValues.brand?.trim()) {
-        enrichPayload.brand = currentValues.brand.trim();
-      }
-
-      const response = await inventoryService.enrichItem(enrichPayload);
-
-      // Populate form fields with AI-suggested values
-      if (response.description) {
-        setValue('description', response.description, { shouldDirty: true });
-      }
-      if (response.labels) {
-        setValue('labels', response.labels, { shouldDirty: true });
-      }
-
-      // Show success message with confidence if available
-      const confidenceText = response.confidence
-        ? ` (${Math.round(response.confidence * 100)}% confidence)`
-        : '';
-      
-      if (response.warnings && response.warnings.length > 0) {
+      // Check if we got results
+      if (!response.items || response.items.length === 0) {
         Toast.show({
-          type: 'info',
-          text1: 'AI Enrichment Complete',
-          text2: `Labels and description added${confidenceText}. ${response.warnings.length} warning(s)`,
+          type: 'error',
+          text1: 'Product Not Found',
+          text2: 'No product information found for this UPC code',
+        });
+        return;
+      }
+
+      const item = response.items[0];
+      let fieldsPopulated = 0;
+
+      // Map title to itemName
+      if (item.title) {
+        setValue('itemName', item.title, { shouldDirty: true });
+        fieldsPopulated++;
+      }
+
+      // Map brand
+      if (item.brand) {
+        setValue('brand', item.brand, { shouldDirty: true });
+        fieldsPopulated++;
+      }
+
+      // Map description
+      if (item.description) {
+        setValue('description', item.description, { shouldDirty: true });
+        fieldsPopulated++;
+      }
+
+      // Map first image URL
+      if (item.images && item.images.length > 0) {
+        setValue('imageUrl', item.images[0], { shouldDirty: true });
+        fieldsPopulated++;
+      }
+
+      // Map category (auto-select if match found)
+      if (item.category && categories && categories.length > 0) {
+        const matchedCategoryCode = mapCategoryToCode(item.category, categories);
+        if (matchedCategoryCode) {
+          setValue('categories', matchedCategoryCode, { shouldDirty: true });
+          fieldsPopulated++;
+        }
+      }
+
+      // Extract labels from description
+      if (item.description) {
+        const extractedLabels = extractLabels(item.description);
+        if (extractedLabels) {
+          setValue('labels', extractedLabels, { shouldDirty: true });
+          fieldsPopulated++;
+        }
+      }
+
+      // Show success message
+      Toast.show({
+        type: 'success',
+        text1: 'Product Details Loaded',
+        text2: `Successfully populated ${fieldsPopulated} field(s) from product database`,
+        visibilityTime: 3000,
+      });
+    } catch (error) {
+      // Error handling is done in the service, but we can show a more specific message
+      if (error instanceof Error) {
+        Toast.show({
+          type: 'error',
+          text1: 'Failed to Load Product',
+          text2: error.message,
           visibilityTime: 4000,
         });
       } else {
-        Toast.show({
-          type: 'success',
-          text1: 'AI Enrichment Complete',
-          text2: `Labels and description enriched${confidenceText}`,
-          visibilityTime: 3000,
-        });
+        handleApiError(error);
       }
-    } catch (error) {
-      handleApiError(error);
     } finally {
       setIsAiLoading(false);
     }

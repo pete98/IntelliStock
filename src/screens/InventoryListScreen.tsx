@@ -8,6 +8,7 @@ import {
   StyleSheet,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -82,32 +83,35 @@ export default function InventoryListScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by category, name, or code..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholderTextColor={theme.colors.textSecondary}
-        />
-        
-        <TouchableOpacity
-          style={[styles.filterButton, showLowStock && styles.filterButtonActive]}
-          onPress={() => setShowLowStock(!showLowStock)}
-        >
-          <Text style={[styles.filterText, showLowStock && styles.filterTextActive]}>
-            Low Stock
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.scannerButton} onPress={openBarcodeScanner}>
-          <Ionicons name="scan" size={20} color={theme.colors.primary} />
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.settingsButton} onPress={handleSettings}>
-          <Text style={styles.settingsText}>⚙️</Text>
-        </TouchableOpacity>
+        <Text style={styles.title}>My Inventory</Text>
+        <View style={styles.searchRow}>
+          <Ionicons name="search" size={18} color="#0b0b0b" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by category, name, or code..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholderTextColor="rgba(11, 11, 11, 0.5)"
+          />
+        </View>
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[styles.filterButton, showLowStock && styles.filterButtonActive]}
+            onPress={() => setShowLowStock(!showLowStock)}
+          >
+            <Text style={[styles.filterText, showLowStock && styles.filterTextActive]}>
+              Low Stock
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconButton} onPress={openBarcodeScanner}>
+            <Ionicons name="scan" size={18} color="#0b0b0b" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconButton} onPress={handleSettings}>
+            <Ionicons name="settings-outline" size={18} color="#0b0b0b" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {filteredInventory.length === 0 ? (
@@ -129,7 +133,8 @@ export default function InventoryListScreen() {
             <RefreshControl
               refreshing={isLoading}
               onRefresh={refetch}
-              colors={[theme.colors.primary]}
+              colors={['#0b0b0b']}
+              tintColor="#0b0b0b"
             />
           }
           contentContainerStyle={styles.listContent}
@@ -139,66 +144,87 @@ export default function InventoryListScreen() {
       <TouchableOpacity style={styles.fab} onPress={handleAddItem}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#ffffff',
   },
   header: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
+    paddingBottom: theme.spacing.md,
+    backgroundColor: '#ffffff',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#0b0b0b',
+    marginBottom: theme.spacing.md,
+  },
+  searchRow: {
     flexDirection: 'row',
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.background,
     alignItems: 'center',
-    gap: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(11, 11, 11, 0.12)',
+    borderRadius: theme.borderRadius.lg,
+    paddingHorizontal: theme.spacing.md,
+    height: 44,
+    backgroundColor: '#ffffff',
   },
   searchInput: {
     flex: 1,
-    height: 40,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.md,
-    paddingHorizontal: theme.spacing.md,
-    fontSize: theme.typography.body.fontSize,
-    backgroundColor: theme.colors.surface,
+    height: 44,
+    paddingHorizontal: theme.spacing.sm,
+    fontSize: 15,
+    color: '#0b0b0b',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: theme.spacing.md,
   },
   filterButton: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: theme.spacing.lg,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
+    borderColor: 'rgba(11, 11, 11, 0.12)',
+    backgroundColor: '#ffffff',
+    marginRight: theme.spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterButtonActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    backgroundColor: '#0b0b0b',
+    borderColor: '#0b0b0b',
   },
   filterText: {
-    fontSize: theme.typography.caption.fontSize,
-    color: theme.colors.textSecondary,
-    fontWeight: '600',
+    fontSize: 12,
+    color: '#0b0b0b',
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   filterTextActive: {
-    color: theme.colors.background,
+    color: '#ffffff',
   },
-  scannerButton: {
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.surface,
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  settingsButton: {
-    padding: theme.spacing.sm,
-  },
-  settingsText: {
-    fontSize: 20,
+    borderColor: 'rgba(11, 11, 11, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: theme.spacing.sm,
   },
   listContent: {
+    paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.xl,
   },
   fab: {
@@ -208,14 +234,14 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#0b0b0b',
     justifyContent: 'center',
     alignItems: 'center',
     ...theme.shadows.md,
   },
   fabText: {
     fontSize: 32,
-    color: theme.colors.background,
+    color: '#ffffff',
     fontWeight: 'bold',
     textAlign: 'center',
     lineHeight: 32,

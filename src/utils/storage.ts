@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 
 const BASE_URL_KEY = 'BASE_URL';
-const DEFAULT_BASE_URL = 'https://964db6a69a5a.ngrok-free.app/';
+const DEFAULT_BASE_URL = 'https://cd7ba7c78881.ngrok-free.app/';
 
 export async function getBaseUrl(): Promise<string> {
   try {
@@ -30,5 +30,4 @@ export async function resetBaseUrl(): Promise<void> {
     throw error;
   }
 }
-
 

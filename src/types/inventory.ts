@@ -166,4 +166,47 @@ export interface UpdateSubcategory {
   categoryCode?: string;
 }
 
+// UPC Item DB API Types
+export interface UpcItemDbOffer {
+  merchant: string;
+  domain: string;
+  title: string;
+  currency: string;
+  list_price: string;
+  price: number;
+  shipping: string;
+  condition: string;
+  availability: string;
+  link: string;
+  updated_t: number;
+}
+
+export interface UpcItemDbItem {
+  ean: string;
+  title: string;
+  description: string;
+  upc: string;
+  brand: string;
+  model: string;
+  color: string;
+  size: string;
+  dimension: string;
+  weight: string;
+  category: string;
+  currency: string;
+  lowest_recorded_price: number;
+  highest_recorded_price: number;
+  images: string[];
+  offers: UpcItemDbOffer[];
+  asin: string;
+  elid: string;
+}
+
+export interface UpcItemDbResponse {
+  code: string;
+  total: number;
+  offset: number;
+  items: UpcItemDbItem[];
+}
+
 

@@ -1,6 +1,7 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosHeaders, AxiosInstance } from 'axios';
 import { getBaseUrl } from '@/utils/storage';
 import { handleApiError } from '@/utils/errorHandler';
+import { getAccessToken } from '@/utils/auth';
 
 let apiClient: AxiosInstance | null = null;
 
@@ -17,7 +18,15 @@ export async function createApiClient(): Promise<AxiosInstance> {
 
   // Request interceptor
   client.interceptors.request.use(
-    (config) => {
+    async (config) => {
+      const accessToken = await getAccessToken();
+
+      if (accessToken) {
+        const headers = AxiosHeaders.from(config.headers);
+        headers.set('Authorization', `Bearer ${accessToken}`);
+        config.headers = headers;
+      }
+
       console.log(`Making ${config.method?.toUpperCase()} request to ${config.url}`);
       return config;
     },
@@ -50,6 +59,4 @@ export async function getApiClient(): Promise<AxiosInstance> {
 export async function updateApiClientBaseUrl(): Promise<void> {
   apiClient = await createApiClient();
 }
-
-
 

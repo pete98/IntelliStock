@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useAuth0 } from 'react-native-auth0';
 import { RootStackParamList } from '@/navigation/types';
 import { useDocs } from '@/hooks/useInventory';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
@@ -18,6 +19,7 @@ import { ErrorView } from '@/components/ErrorView';
 import { theme } from '@/config/theme';
 import { getBaseUrl, setBaseUrl, resetBaseUrl } from '@/utils/storage';
 import { updateApiClientBaseUrl } from '@/config/api';
+import { clearAccessToken } from '@/utils/auth';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
 
@@ -25,6 +27,8 @@ export default function SettingsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const [baseUrl, setBaseUrlState] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { user, clearSession } = useAuth0();
 
   const { data: docs, isLoading: isLoadingDocs, error: docsError } = useDocs();
 
@@ -78,6 +82,21 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
+
+    try {
+      await clearSession();
+      await clearAccessToken();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to log out');
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
   if (isLoading) {
     return <LoadingSpinner text="Loading settings..." />;
   }
@@ -85,6 +104,27 @@ export default function SettingsScreen() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.content}>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Account</Text>
+          <View style={styles.accountRow}>
+            <View style={styles.accountDetails}>
+              <Text style={styles.accountName}>{user?.name || 'Signed in user'}</Text>
+              {!!user?.email && <Text style={styles.accountEmail}>{user.email}</Text>}
+            </View>
+            <TouchableOpacity
+              style={[styles.logoutButton, isLoggingOut && styles.logoutButtonDisabled]}
+              onPress={handleLogout}
+              disabled={isLoggingOut}
+              accessibilityRole="button"
+              accessibilityLabel="Log out"
+            >
+              <Text style={styles.logoutButtonText}>
+                {isLoggingOut ? 'Signing out...' : 'Log out'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>API Configuration</Text>
           
@@ -255,6 +295,38 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     lineHeight: 22,
   },
+  accountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  accountDetails: {
+    flex: 1,
+  },
+  accountName: {
+    fontSize: theme.typography.body.fontSize,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  accountEmail: {
+    fontSize: theme.typography.small.fontSize,
+    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.xs,
+  },
+  logoutButton: {
+    backgroundColor: theme.colors.secondary,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+  },
+  logoutButtonDisabled: {
+    opacity: 0.6,
+  },
+  logoutButtonText: {
+    color: theme.colors.background,
+    fontSize: theme.typography.small.fontSize,
+    fontWeight: '600',
+  },
 });
-
 
