@@ -1,10 +1,11 @@
 import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import styled from 'styled-components/native';
 
 import { theme } from '@/config/theme';
+import { getResponsiveLayout } from '@/utils/layout';
 
 interface OrderItem {
   id: string;
@@ -65,87 +66,96 @@ function getMockOrder(): OrderApprovalData {
 }
 
 export function OrderApprovalScreen() {
+  const { width } = useWindowDimensions();
+  const responsiveLayout = getResponsiveLayout(width);
   const order = getMockOrder();
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }} edges={['top', 'left', 'right']}>
       <ScrollView
-        contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl }}
+        contentContainerStyle={{
+          alignItems: 'center',
+          paddingHorizontal: responsiveLayout.horizontalPadding,
+          paddingTop: theme.spacing.lg,
+          paddingBottom: theme.spacing.xxl,
+        }}
         showsVerticalScrollIndicator={false}
       >
-        <Header>
-          <Title>Order Approval</Title>
-          <StatusPill>
-            <StatusDot />
-            <StatusText>Awaiting Acceptance</StatusText>
-          </StatusPill>
-        </Header>
+        <View style={{ width: responsiveLayout.contentWidth }}>
+          <Header>
+            <Title>Order Approval</Title>
+            <StatusPill>
+              <StatusDot />
+              <StatusText>Awaiting Acceptance</StatusText>
+            </StatusPill>
+          </Header>
 
-        <MetaRow>
-          <MetaBlock>
-            <MetaLabel>Order</MetaLabel>
-            <MetaValue>{order.orderId}</MetaValue>
-          </MetaBlock>
-          <MetaBlock>
-            <MetaLabel>Placed</MetaLabel>
-            <MetaValue>{order.placedAt}</MetaValue>
-          </MetaBlock>
-        </MetaRow>
+          <MetaRow>
+            <MetaBlock>
+              <MetaLabel>Order</MetaLabel>
+              <MetaValue>{order.orderId}</MetaValue>
+            </MetaBlock>
+            <MetaBlock>
+              <MetaLabel>Placed</MetaLabel>
+              <MetaValue>{order.placedAt}</MetaValue>
+            </MetaBlock>
+          </MetaRow>
 
-        <InfoCard>
-          <InfoRow>
-            <Ionicons name="person-outline" size={18} color="#0b0b0b" />
-            <InfoText>{order.customerName}</InfoText>
-          </InfoRow>
-          <InfoRow>
-            <Ionicons name="car-outline" size={18} color="#0b0b0b" />
-            <InfoText>{order.fulfillment}</InfoText>
-          </InfoRow>
-          <InfoRow>
-            <Ionicons name="location-outline" size={18} color="#0b0b0b" />
-            <InfoText>{order.address}</InfoText>
-          </InfoRow>
-        </InfoCard>
+          <InfoCard>
+            <InfoRow>
+              <Ionicons name="person-outline" size={18} color="#0b0b0b" />
+              <InfoText>{order.customerName}</InfoText>
+            </InfoRow>
+            <InfoRow>
+              <Ionicons name="car-outline" size={18} color="#0b0b0b" />
+              <InfoText>{order.fulfillment}</InfoText>
+            </InfoRow>
+            <InfoRow>
+              <Ionicons name="location-outline" size={18} color="#0b0b0b" />
+              <InfoText>{order.address}</InfoText>
+            </InfoRow>
+          </InfoCard>
 
-        <SectionTitle>Items</SectionTitle>
-        <ItemList>
-          {order.items.map(item => (
-            <ItemCard key={item.id}>
-              <ItemHeader>
-                <ItemTitle>{item.name}</ItemTitle>
-                <ItemPrice>{item.price}</ItemPrice>
-              </ItemHeader>
-              <ItemMeta>
-                <ItemQuantity>Qty {item.quantity}</ItemQuantity>
-                {item.isOutOfStock && <OutOfStockTag>Out of stock</OutOfStockTag>}
-              </ItemMeta>
-              {item.note ? <ItemNote>{item.note}</ItemNote> : null}
-              <ItemActions>
-                <SmallButton>
-                  <SmallButtonText>Substitute</SmallButtonText>
-                </SmallButton>
-                <SmallButton>
-                  <SmallButtonText>Mark Unavailable</SmallButtonText>
-                </SmallButton>
-              </ItemActions>
-            </ItemCard>
-          ))}
-        </ItemList>
+          <SectionTitle>Items</SectionTitle>
+          <ItemList>
+            {order.items.map(item => (
+              <ItemCard key={item.id}>
+                <ItemHeader>
+                  <ItemTitle>{item.name}</ItemTitle>
+                  <ItemPrice>{item.price}</ItemPrice>
+                </ItemHeader>
+                <ItemMeta>
+                  <ItemQuantity>Qty {item.quantity}</ItemQuantity>
+                  {item.isOutOfStock ? <OutOfStockTag>Out of stock</OutOfStockTag> : null}
+                </ItemMeta>
+                {item.note ? <ItemNote>{item.note}</ItemNote> : null}
+                <ItemActions>
+                  <SmallButton>
+                    <SmallButtonText>Substitute</SmallButtonText>
+                  </SmallButton>
+                  <SmallButton>
+                    <SmallButtonText>Mark Unavailable</SmallButtonText>
+                  </SmallButton>
+                </ItemActions>
+              </ItemCard>
+            ))}
+          </ItemList>
 
-        <TotalCard>
-          <TotalLabel>Order Total</TotalLabel>
-          <TotalValue>{order.total}</TotalValue>
-        </TotalCard>
+          <TotalCard>
+            <TotalLabel>Order Total</TotalLabel>
+            <TotalValue>{order.total}</TotalValue>
+          </TotalCard>
 
-        <PrimaryButton accessibilityRole="button">
-          <PrimaryButtonText>Accept Order</PrimaryButtonText>
-        </PrimaryButton>
-        <SecondaryButton accessibilityRole="button">
-          <SecondaryButtonText>Request Changes</SecondaryButtonText>
-        </SecondaryButton>
-        <TertiaryButton accessibilityRole="button">
-          <TertiaryButtonText>Decline</TertiaryButtonText>
-        </TertiaryButton>
+          <PrimaryButton accessibilityRole="button">
+            <PrimaryButtonText>Accept Order</PrimaryButtonText>
+          </PrimaryButton>
+          <SecondaryButton accessibilityRole="button">
+            <SecondaryButtonText>Request Changes</SecondaryButtonText>
+          </SecondaryButton>
+          <TertiaryButton accessibilityRole="button">
+            <TertiaryButtonText>Decline</TertiaryButtonText>
+          </TertiaryButton>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

@@ -4,7 +4,7 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import {
   CameraView,
@@ -18,15 +18,16 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '@/navigation/types';
 import { theme } from '@/config/theme';
+import { getResponsiveLayout } from '@/utils/layout';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'BarcodeScanner'>;
 type BarcodeScannerRouteProp = RouteProp<RootStackParamList, 'BarcodeScanner'>;
 
-const { width, height } = Dimensions.get('window');
-
 export default function BarcodeScannerScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<BarcodeScannerRouteProp>();
+  const { width } = useWindowDimensions();
+  const responsiveLayout = getResponsiveLayout(width);
   const { source, itemId } = route.params;
   
   const [facing, setFacing] = useState<CameraType>('back');
@@ -132,6 +133,10 @@ export default function BarcodeScannerScreen() {
     setTorchEnabled(current => !current);
   };
 
+  const scanningWidth = Math.min(Math.max(width * 0.62, 240), 520);
+  const scanningHeight = Math.min(Math.max(scanningWidth * 0.55, 140), 280);
+  const contentPadding = responsiveLayout.isTablet ? 56 : 40;
+
   return (
     <View style={styles.container}>
       <View style={styles.cameraWrapper}>
@@ -174,7 +179,7 @@ export default function BarcodeScannerScreen() {
 
             {/* Scanning frame */}
             <View style={styles.scanningFrame}>
-              <View style={styles.scanningArea}>
+              <View style={[styles.scanningArea, { width: scanningWidth, height: scanningHeight }]}>
                 <View style={[styles.corner, styles.topLeft]} />
                 <View style={[styles.corner, styles.topRight]} />
                 <View style={[styles.corner, styles.bottomLeft]} />
@@ -183,7 +188,7 @@ export default function BarcodeScannerScreen() {
             </View>
 
             {/* Instructions */}
-            <View style={styles.instructionsContainer}>
+            <View style={[styles.instructionsContainer, { paddingHorizontal: contentPadding }]}>
               <Text style={styles.instructions}>
                 Position the barcode within the frame
               </Text>
@@ -193,7 +198,7 @@ export default function BarcodeScannerScreen() {
             </View>
 
             {/* Bottom controls */}
-            <View style={styles.bottomControls}>
+            <View style={[styles.bottomControls, { paddingHorizontal: contentPadding }]}>
               <TouchableOpacity
                 style={styles.controlButton}
                 onPress={toggleCameraFacing}
@@ -269,8 +274,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scanningArea: {
-    width: width * 0.7,
-    height: width * 0.4,
     position: 'relative',
   },
   corner: {
@@ -366,7 +369,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   permissionButton: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#0b0b0b',
     paddingHorizontal: 30,
     paddingVertical: 15,
     borderRadius: theme.borderRadius.md,

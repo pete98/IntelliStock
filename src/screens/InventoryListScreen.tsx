@@ -7,6 +7,7 @@ import {
   Text,
   StyleSheet,
   RefreshControl,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -19,6 +20,7 @@ import { ErrorView } from '@/components/ErrorView';
 import { EmptyState } from '@/components/EmptyState';
 import { ItemCard } from '@/components/ItemCard';
 import { theme } from '@/config/theme';
+import { getResponsiveLayout } from '@/utils/layout';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'InventoryList'>;
 type InventoryListRouteProp = RouteProp<RootStackParamList, 'InventoryList'>;
@@ -26,6 +28,8 @@ type InventoryListRouteProp = RouteProp<RootStackParamList, 'InventoryList'>;
 export default function InventoryListScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<InventoryListRouteProp>();
+  const { width } = useWindowDimensions();
+  const responsiveLayout = getResponsiveLayout(width);
   const [searchQuery, setSearchQuery] = useState('');
   const [showLowStock, setShowLowStock] = useState(false);
 
@@ -85,64 +89,81 @@ export default function InventoryListScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <View style={styles.header}>
-        <Text style={styles.title}>My Inventory</Text>
-        <View style={styles.searchRow}>
-          <Ionicons name="search" size={18} color="#0b0b0b" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by category, name, or code..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholderTextColor="rgba(11, 11, 11, 0.5)"
-          />
-        </View>
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={[styles.filterButton, showLowStock && styles.filterButtonActive]}
-            onPress={() => setShowLowStock(!showLowStock)}
-          >
-            <Text style={[styles.filterText, showLowStock && styles.filterTextActive]}>
-              Low Stock
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={openBarcodeScanner}>
-            <Ionicons name="scan" size={18} color="#0b0b0b" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={handleSettings}>
-            <Ionicons name="settings-outline" size={18} color="#0b0b0b" />
-          </TouchableOpacity>
+      <View style={[styles.header, { paddingHorizontal: responsiveLayout.horizontalPadding }]}>
+        <View style={[styles.headerContent, { width: responsiveLayout.contentWidth }]}>
+          <Text style={styles.title}>My Inventory</Text>
+          <View style={styles.searchRow}>
+            <Ionicons name="search" size={18} color="#0b0b0b" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by category, name, or code..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="rgba(11, 11, 11, 0.5)"
+            />
+          </View>
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={[styles.filterButton, showLowStock && styles.filterButtonActive]}
+              onPress={() => setShowLowStock(!showLowStock)}
+            >
+              <Text style={[styles.filterText, showLowStock && styles.filterTextActive]}>
+                Low Stock
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconButton} onPress={openBarcodeScanner}>
+              <Ionicons name="scan" size={18} color="#0b0b0b" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconButton} onPress={handleSettings}>
+              <Ionicons name="settings-outline" size={18} color="#0b0b0b" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
-      {filteredInventory.length === 0 ? (
-        <EmptyState
-          title={showLowStock ? "No low stock items" : "No inventory items"}
-          message={searchQuery ? "Try adjusting your search" : "Add your first item to get started"}
-        />
-      ) : (
-        <FlatList
-          data={filteredInventory}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <ItemCard
-              item={item}
-              onPress={() => handleItemPress(item.id)}
+      <View style={[styles.body, { paddingHorizontal: responsiveLayout.horizontalPadding }]}>
+        <View style={[styles.bodyContent, { width: responsiveLayout.contentWidth }]}>
+          {filteredInventory.length === 0 ? (
+            <EmptyState
+              title={showLowStock ? 'No low stock items' : 'No inventory items'}
+              message={searchQuery ? 'Try adjusting your search' : 'Add your first item to get started'}
+            />
+          ) : (
+            <FlatList
+              data={filteredInventory}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <ItemCard
+                  item={item}
+                  onPress={() => handleItemPress(item.id)}
+                />
+              )}
+              refreshControl={
+                <RefreshControl
+                  refreshing={isLoading}
+                  onRefresh={refetch}
+                  colors={['#0b0b0b']}
+                  tintColor="#0b0b0b"
+                />
+              }
+              contentContainerStyle={styles.listContent}
             />
           )}
-          refreshControl={
-            <RefreshControl
-              refreshing={isLoading}
-              onRefresh={refetch}
-              colors={['#0b0b0b']}
-              tintColor="#0b0b0b"
-            />
-          }
-          contentContainerStyle={styles.listContent}
-        />
-      )}
+        </View>
+      </View>
 
-      <TouchableOpacity style={styles.fab} onPress={handleAddItem}>
+      <TouchableOpacity
+        style={[
+          styles.fab,
+          {
+            right: Math.max(
+              responsiveLayout.horizontalPadding,
+              (width - responsiveLayout.contentWidth) / 2 + theme.spacing.lg
+            ),
+          },
+        ]}
+        onPress={handleAddItem}
+      >
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
     </SafeAreaView>
@@ -155,10 +176,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   header: {
-    paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
     backgroundColor: '#ffffff',
+    alignItems: 'center',
+  },
+  headerContent: {
+    maxWidth: '100%',
+  },
+  body: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  bodyContent: {
+    flex: 1,
+    maxWidth: '100%',
   },
   title: {
     fontSize: 28,
@@ -225,7 +257,7 @@ const styles = StyleSheet.create({
     marginRight: theme.spacing.sm,
   },
   listContent: {
-    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.xs,
     paddingBottom: theme.spacing.xl,
   },
   fab: {

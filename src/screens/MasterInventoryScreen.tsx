@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQueryClient } from '@tanstack/react-query';
@@ -29,6 +31,7 @@ import {
 import { RootStackParamList } from '@/navigation/types';
 import { MasterInventoryItem, MasterSelectionDraft } from '@/types/inventory';
 import { handleApiError } from '@/utils/errorHandler';
+import { getResponsiveLayout } from '@/utils/layout';
 
 type ViewMode = 'categories' | 'brands';
 
@@ -39,6 +42,9 @@ interface GroupedItems {
   displayName: string;
   items: MasterInventoryItem[];
 }
+
+const expandHitSlop = { top: 10, bottom: 10, left: 10, right: 10 };
+const expandPressRetentionOffset = { top: 16, bottom: 16, left: 16, right: 16 };
 
 function createSelectionDraft(item: MasterInventoryItem): MasterSelectionDraft {
   return {
@@ -124,6 +130,31 @@ function groupByCategory(items: MasterInventoryItem[]): GroupedItems[] {
   );
 }
 
+function groupByBrand(items: MasterInventoryItem[]): GroupedItems[] {
+  const groupedMap = new Map<string, GroupedItems>();
+
+  items.forEach((item) => {
+    const key = item.brandName?.trim() || 'UNBRANDED';
+    const displayName = item.brandName?.trim() || 'Unbranded';
+
+    const existingGroup = groupedMap.get(key);
+    if (existingGroup) {
+      existingGroup.items.push(item);
+      return;
+    }
+
+    groupedMap.set(key, {
+      key,
+      displayName,
+      items: [item],
+    });
+  });
+
+  return Array.from(groupedMap.values()).sort((leftGroup, rightGroup) =>
+    leftGroup.displayName.localeCompare(rightGroup.displayName)
+  );
+}
+
 function isNonNegativeDecimal(value: string): boolean {
   if (!value.trim()) return false;
   const parsedValue = Number(value);
@@ -140,13 +171,15 @@ export function MasterInventoryScreen() {
   const navigation = useNavigation<NavigationProp>();
   const queryClient = useQueryClient();
   const { width } = useWindowDimensions();
-  const isWideLayout = width >= 920;
+  const responsiveLayout = getResponsiveLayout(width);
+  const isWideLayout = responsiveLayout.contentWidth >= 920;
 
   const [activeView, setActiveView] = useState<ViewMode>('categories');
   const [searchQuery, setSearchQuery] = useState('');
 
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [expandedSubcategories, setExpandedSubcategories] = useState<Record<string, boolean>>({});
+  const [expandedCategoryBrands, setExpandedCategoryBrands] = useState<Record<string, boolean>>({});
   const [expandedBrands, setExpandedBrands] = useState<Record<string, boolean>>({});
 
   const [categoryItemsByCode, setCategoryItemsByCode] = useState<Record<string, MasterInventoryItem[]>>({});
@@ -160,6 +193,7 @@ export function MasterInventoryScreen() {
   const [bulkPrice, setBulkPrice] = useState('');
   const [bulkQuantity, setBulkQuantity] = useState('');
   const [bulkTaxEnabled, setBulkTaxEnabled] = useState(true);
+  const [previewItem, setPreviewItem] = useState<MasterInventoryItem | null>(null);
 
   const {
     data: selectedStoreProfile,
@@ -353,6 +387,13 @@ export function MasterInventoryScreen() {
     }));
   }
 
+  function toggleCategoryBrandExpansion(groupKey: string) {
+    setExpandedCategoryBrands((previousState) => ({
+      ...previousState,
+      [groupKey]: !previousState[groupKey],
+    }));
+  }
+
   async function toggleBrandExpansion(brandName: string) {
     const nextExpandedValue = !expandedBrands[brandName];
     setExpandedBrands((previousState) => ({
@@ -414,17 +455,45 @@ export function MasterInventoryScreen() {
     navigation.navigate('MasterInventoryReview', { selectedItems });
   }
 
+  function handleOpenPreview(item: MasterInventoryItem) {
+    setPreviewItem(item);
+  }
+
+  function handleClosePreview() {
+    setPreviewItem(null);
+  }
+
   function renderItemRow(item: MasterInventoryItem) {
     const isSelected = Boolean(selectionState[item.id]);
 
     return (
       <View key={item.id} style={styles.itemRow}>
-        <View style={styles.itemBody}>
-          <Text style={styles.itemName}>{item.itemName}</Text>
-          <Text style={styles.itemMeta}>
-            {item.sku} {item.brandName ? `• ${item.brandName}` : ''}
-          </Text>
-        </View>
+        <Pressable
+          style={styles.itemPreviewButton}
+          onPress={() => handleOpenPreview(item)}
+          accessibilityRole="button"
+          accessibilityLabel={`Open ${item.itemName} details`}
+        >
+          {item.imageUrl ? (
+            <Image
+              source={{ uri: item.imageUrl }}
+              style={styles.itemImage}
+              contentFit="cover"
+              transition={120}
+            />
+          ) : (
+            <View style={styles.itemImageFallback}>
+              <Ionicons name="image-outline" size={16} color="rgba(11, 11, 11, 0.45)" />
+            </View>
+          )}
+
+          <View style={styles.itemBody}>
+            <Text style={styles.itemName}>{item.itemName}</Text>
+            <Text style={styles.itemMeta}>
+              {item.sku} {item.brandName ? `• ${item.brandName}` : ''}
+            </Text>
+          </View>
+        </Pressable>
 
         <Pressable
           accessibilityRole="checkbox"
@@ -465,6 +534,8 @@ export function MasterInventoryScreen() {
                 <Pressable
                   style={styles.groupTitleButton}
                   onPress={() => toggleCategoryExpansion(category.code)}
+                  hitSlop={expandHitSlop}
+                  pressRetentionOffset={expandPressRetentionOffset}
                   accessibilityRole="button"
                   accessibilityLabel={`${isExpanded ? 'Collapse' : 'Expand'} ${category.displayName}`}
                 >
@@ -506,11 +577,12 @@ export function MasterInventoryScreen() {
                         const subgroupKey = `${category.code}:${group.key}`;
                         const isSubgroupExpanded =
                           expandedSubcategories[subgroupKey] === undefined
-                            ? true
+                            ? false
                             : Boolean(expandedSubcategories[subgroupKey]);
                         const subgroupAllSelected =
                           group.items.length > 0 &&
                           group.items.every((entry) => Boolean(selectionState[entry.id]));
+                        const groupedBrands = groupByBrand(group.items);
 
                         return (
                           <View key={subgroupKey} style={styles.subgroupCard}>
@@ -518,6 +590,8 @@ export function MasterInventoryScreen() {
                               <Pressable
                                 style={styles.subgroupTitleButton}
                                 onPress={() => toggleSubcategoryExpansion(subgroupKey)}
+                                hitSlop={expandHitSlop}
+                                pressRetentionOffset={expandPressRetentionOffset}
                                 accessibilityRole="button"
                                 accessibilityLabel={`${
                                   isSubgroupExpanded ? 'Collapse' : 'Expand'
@@ -546,7 +620,58 @@ export function MasterInventoryScreen() {
                             </View>
 
                             {isSubgroupExpanded ? (
-                              <View style={styles.itemsStack}>{group.items.map((item) => renderItemRow(item))}</View>
+                              <View style={styles.itemsStack}>
+                                {groupedBrands.map((brandGroup) => {
+                                  const brandGroupKey = `${subgroupKey}:${brandGroup.key}`;
+                                  const isBrandExpanded = Boolean(expandedCategoryBrands[brandGroupKey]);
+                                  const brandAllSelected =
+                                    brandGroup.items.length > 0 &&
+                                    brandGroup.items.every((entry) => Boolean(selectionState[entry.id]));
+
+                                  return (
+                                    <View key={brandGroupKey} style={styles.brandCard}>
+                                      <View style={styles.brandHeader}>
+                                        <Pressable
+                                          style={styles.brandTitleButton}
+                                          onPress={() => toggleCategoryBrandExpansion(brandGroupKey)}
+                                          hitSlop={expandHitSlop}
+                                          pressRetentionOffset={expandPressRetentionOffset}
+                                          accessibilityRole="button"
+                                          accessibilityLabel={`${
+                                            isBrandExpanded ? 'Collapse' : 'Expand'
+                                          } ${brandGroup.displayName}`}
+                                        >
+                                          <Ionicons
+                                            name={isBrandExpanded ? 'chevron-down' : 'chevron-forward'}
+                                            size={13}
+                                            color="rgba(11, 11, 11, 0.75)"
+                                          />
+                                          <Text style={styles.brandTitle}>{brandGroup.displayName}</Text>
+                                          <Text style={styles.subgroupCount}>({brandGroup.items.length})</Text>
+                                        </Pressable>
+
+                                        <Pressable
+                                          accessibilityRole="button"
+                                          onPress={() =>
+                                            applySelectionToGroup(brandGroup.items, !brandAllSelected)
+                                          }
+                                          style={styles.groupAction}
+                                        >
+                                          <Text style={styles.groupActionText}>
+                                            {brandAllSelected ? 'Clear' : 'Select'}
+                                          </Text>
+                                        </Pressable>
+                                      </View>
+
+                                      {isBrandExpanded ? (
+                                        <View style={styles.itemsStack}>
+                                          {brandGroup.items.map((item) => renderItemRow(item))}
+                                        </View>
+                                      ) : null}
+                                    </View>
+                                  );
+                                })}
+                              </View>
                             ) : null}
                           </View>
                         );
@@ -588,6 +713,8 @@ export function MasterInventoryScreen() {
                 <Pressable
                   style={styles.groupTitleButton}
                   onPress={() => toggleBrandExpansion(brand.name)}
+                  hitSlop={expandHitSlop}
+                  pressRetentionOffset={expandPressRetentionOffset}
                   accessibilityRole="button"
                   accessibilityLabel={`${isExpanded ? 'Collapse' : 'Expand'} ${brand.name}`}
                 >
@@ -672,9 +799,16 @@ export function MasterInventoryScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            alignItems: 'center',
+            paddingHorizontal: responsiveLayout.horizontalPadding,
+          },
+        ]}
         showsVerticalScrollIndicator={false}
       >
+        <View style={{ width: responsiveLayout.contentWidth }}>
         <View style={styles.header}>
           <Text style={styles.title}>Master Inventory</Text>
           <Text style={styles.subtitle}>Browse by category or brand and add products in bulk.</Text>
@@ -853,7 +987,57 @@ export function MasterInventoryScreen() {
             </Pressable>
           </View>
         </View>
+        </View>
       </ScrollView>
+
+      <Modal
+        visible={Boolean(previewItem)}
+        transparent
+        animationType="fade"
+        onRequestClose={handleClosePreview}
+      >
+        <Pressable style={styles.previewOverlay} onPress={handleClosePreview}>
+          <Pressable style={styles.previewModal} onPress={() => {}}>
+            <View style={styles.previewHeader}>
+              <Text style={styles.previewTitle}>Product Details</Text>
+              <Pressable
+                onPress={handleClosePreview}
+                style={styles.previewCloseButton}
+                accessibilityRole="button"
+                accessibilityLabel="Close product details"
+              >
+                <Ionicons name="close" size={16} color="#0b0b0b" />
+              </Pressable>
+            </View>
+
+            {previewItem?.imageUrl ? (
+              <Image
+                source={{ uri: previewItem.imageUrl }}
+                style={styles.previewImage}
+                contentFit="contain"
+                transition={120}
+              />
+            ) : (
+              <View style={styles.previewImageFallback}>
+                <Ionicons name="image-outline" size={30} color="rgba(11, 11, 11, 0.45)" />
+              </View>
+            )}
+
+            <Text style={styles.previewName}>{previewItem?.itemName}</Text>
+            <Text style={styles.previewMeta}>SKU: {previewItem?.sku || '-'}</Text>
+            <Text style={styles.previewMeta}>Brand: {previewItem?.brandName || 'Unbranded'}</Text>
+            <Text style={styles.previewMeta}>
+              Category: {previewItem?.categoryDisplayName || 'Other'}
+            </Text>
+            <Text style={styles.previewMeta}>
+              Subcategory: {previewItem?.subCategoryDisplayName || 'Other'}
+            </Text>
+            {previewItem?.description ? (
+              <Text style={styles.previewDescription}>{previewItem.description}</Text>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -864,7 +1048,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   scrollContent: {
-    padding: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing.xxl,
   },
   header: {
@@ -1006,6 +1190,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     gap: 6,
+    minHeight: 44,
+    paddingVertical: 8,
   },
   groupTitle: {
     fontSize: 15,
@@ -1055,6 +1241,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     flex: 1,
+    minHeight: 44,
+    paddingVertical: 8,
   },
   subgroupTitle: {
     fontSize: 13,
@@ -1064,6 +1252,33 @@ const styles = StyleSheet.create({
   subgroupCount: {
     fontSize: 12,
     color: 'rgba(11, 11, 11, 0.55)',
+  },
+  brandCard: {
+    borderWidth: 1,
+    borderColor: 'rgba(11, 11, 11, 0.08)',
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.sm,
+    backgroundColor: '#ffffff',
+  },
+  brandHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
+  },
+  brandTitleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+    minHeight: 44,
+    paddingVertical: 8,
+  },
+  brandTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0b0b0b',
   },
   itemsStack: {
     gap: theme.spacing.xs,
@@ -1079,6 +1294,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 10,
     backgroundColor: '#ffffff',
+  },
+  itemPreviewButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  itemImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(11, 11, 11, 0.08)',
+    backgroundColor: '#f4f4f5',
+  },
+  itemImageFallback: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(11, 11, 11, 0.08)',
+    backgroundColor: '#f4f4f5',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   itemBody: {
     flex: 1,
@@ -1229,5 +1468,78 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#ffffff',
+  },
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.lg,
+  },
+  previewModal: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(11, 11, 11, 0.08)',
+    backgroundColor: '#ffffff',
+    padding: theme.spacing.md,
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.md,
+  },
+  previewTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0b0b0b',
+  },
+  previewCloseButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(11, 11, 11, 0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(11, 11, 11, 0.08)',
+    backgroundColor: '#f4f4f5',
+    marginBottom: theme.spacing.md,
+  },
+  previewImageFallback: {
+    width: '100%',
+    height: 160,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(11, 11, 11, 0.08)',
+    backgroundColor: '#f4f4f5',
+    marginBottom: theme.spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0b0b0b',
+    marginBottom: 8,
+  },
+  previewMeta: {
+    fontSize: 13,
+    color: 'rgba(11, 11, 11, 0.7)',
+    marginBottom: 4,
+  },
+  previewDescription: {
+    marginTop: theme.spacing.sm,
+    fontSize: 13,
+    lineHeight: 19,
+    color: 'rgba(11, 11, 11, 0.75)',
   },
 });

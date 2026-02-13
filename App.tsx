@@ -53,11 +53,11 @@ function createLocalAuthOptions() {
 
 const screenOptions = {
   headerStyle: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#ffffff',
   },
-  headerTintColor: '#ffffff',
+  headerTintColor: '#0b0b0b',
   headerTitleStyle: {
-    fontWeight: 'bold' as const,
+    fontWeight: '700' as const,
   },
 };
 
