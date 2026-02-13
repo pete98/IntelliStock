@@ -17,7 +17,14 @@ import { useDocs } from '@/hooks/useInventory';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorView } from '@/components/ErrorView';
 import { theme } from '@/config/theme';
-import { getBaseUrl, setBaseUrl, resetBaseUrl } from '@/utils/storage';
+import {
+  getInventoryServiceBaseUrl,
+  getUserServiceBaseUrl,
+  setInventoryServiceBaseUrl,
+  setUserServiceBaseUrl,
+  resetInventoryServiceBaseUrl,
+  resetUserServiceBaseUrl,
+} from '@/utils/storage';
 import { updateApiClientBaseUrl } from '@/config/api';
 import { clearAccessToken } from '@/utils/auth';
 
@@ -25,7 +32,8 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
 
 export default function SettingsScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const [baseUrl, setBaseUrlState] = useState('');
+  const [inventoryBaseUrl, setInventoryBaseUrl] = useState('');
+  const [userBaseUrl, setUserBaseUrl] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { user, clearSession } = useAuth0();
@@ -38,8 +46,12 @@ export default function SettingsScreen() {
 
   const loadBaseUrl = async () => {
     try {
-      const url = await getBaseUrl();
-      setBaseUrlState(url);
+      const [inventoryUrl, userUrl] = await Promise.all([
+        getInventoryServiceBaseUrl(),
+        getUserServiceBaseUrl(),
+      ]);
+      setInventoryBaseUrl(inventoryUrl);
+      setUserBaseUrl(userUrl);
     } catch (error) {
       console.error('Failed to load base URL:', error);
     } finally {
@@ -49,9 +61,15 @@ export default function SettingsScreen() {
 
   const handleSaveBaseUrl = async () => {
     try {
-      await setBaseUrl(baseUrl);
-      await updateApiClientBaseUrl();
-      Alert.alert('Success', 'Base URL updated successfully');
+      await Promise.all([
+        setInventoryServiceBaseUrl(inventoryBaseUrl),
+        setUserServiceBaseUrl(userBaseUrl),
+      ]);
+      await Promise.all([
+        updateApiClientBaseUrl('inventory'),
+        updateApiClientBaseUrl('user'),
+      ]);
+      Alert.alert('Success', 'Service base URLs updated successfully');
     } catch (error) {
       Alert.alert('Error', 'Failed to save base URL');
     }
@@ -59,11 +77,21 @@ export default function SettingsScreen() {
 
   const handleResetBaseUrl = async () => {
     try {
-      await resetBaseUrl();
-      const defaultUrl = await getBaseUrl();
-      setBaseUrlState(defaultUrl);
-      await updateApiClientBaseUrl();
-      Alert.alert('Success', 'Base URL reset to default');
+      await Promise.all([
+        resetInventoryServiceBaseUrl(),
+        resetUserServiceBaseUrl(),
+      ]);
+      const [defaultInventoryUrl, defaultUserUrl] = await Promise.all([
+        getInventoryServiceBaseUrl(),
+        getUserServiceBaseUrl(),
+      ]);
+      setInventoryBaseUrl(defaultInventoryUrl);
+      setUserBaseUrl(defaultUserUrl);
+      await Promise.all([
+        updateApiClientBaseUrl('inventory'),
+        updateApiClientBaseUrl('user'),
+      ]);
+      Alert.alert('Success', 'Service base URLs reset to default');
     } catch (error) {
       Alert.alert('Error', 'Failed to reset base URL');
     }
@@ -129,18 +157,34 @@ export default function SettingsScreen() {
           <Text style={styles.sectionTitle}>API Configuration</Text>
           
           <View style={styles.field}>
-            <Text style={styles.label}>Base URL</Text>
+            <Text style={styles.label}>Inventory Service Base URL</Text>
             <TextInput
               style={styles.input}
-              value={baseUrl}
-              onChangeText={setBaseUrlState}
+              value={inventoryBaseUrl}
+              onChangeText={setInventoryBaseUrl}
               placeholder="http://localhost:8080"
               placeholderTextColor={theme.colors.textSecondary}
               autoCapitalize="none"
               autoCorrect={false}
             />
             <Text style={styles.helpText}>
-              Enter the base URL for your inventory API
+              Used for inventory and store endpoints.
+            </Text>
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>User Service Base URL</Text>
+            <TextInput
+              style={styles.input}
+              value={userBaseUrl}
+              onChangeText={setUserBaseUrl}
+              placeholder="http://localhost:8081"
+              placeholderTextColor={theme.colors.textSecondary}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <Text style={styles.helpText}>
+              Used for user identity lookup endpoints.
             </Text>
           </View>
 
@@ -329,4 +373,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

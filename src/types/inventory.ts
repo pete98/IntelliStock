@@ -1,6 +1,8 @@
 export interface InventoryItem {
   id: string;
+  inventoryItemId?: number;
   itemName: string;
+  productName?: string;
   productCode: string;
   sku: string;
   price: number;
@@ -8,6 +10,9 @@ export interface InventoryItem {
   categories?: string;
   subCategory?: string;
   brand?: string;
+  active?: boolean;
+  seasonal?: boolean;
+  discontinued?: boolean;
   modifiers?: string;
   labels?: string;
   taxRate?: number;
@@ -22,7 +27,9 @@ export interface InventoryItem {
 }
 
 export interface CreateInventoryItem {
+  inventoryItemId?: number;
   itemName: string;
+  productName?: string;
   productCode: string;
   sku: string;
   price: number;
@@ -30,6 +37,9 @@ export interface CreateInventoryItem {
   categories?: string;
   subCategory?: string;
   brand?: string;
+  active?: boolean;
+  seasonal?: boolean;
+  discontinued?: boolean;
   modifiers?: string;
   labels?: string;
   taxRate?: number;
@@ -44,12 +54,19 @@ export interface CreateInventoryItem {
 }
 
 export interface UpdateInventoryItem {
+  inventoryItemId?: number;
   itemName?: string;
+  productName?: string;
   productCode?: string;
   sku?: string;
   price?: number;
   stockQuantity?: number;
   categories?: string;
+  subCategory?: string;
+  brand?: string;
+  active?: boolean;
+  seasonal?: boolean;
+  discontinued?: boolean;
   subcategoryCode?: string;
   modifiers?: string;
   labels?: string;
@@ -208,5 +225,4 @@ export interface UpcItemDbResponse {
   offset: number;
   items: UpcItemDbItem[];
 }
-
 

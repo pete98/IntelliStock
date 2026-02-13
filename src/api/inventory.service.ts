@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getApiClient } from '@/config/api';
+import { resolveStoreContext } from '@/utils/storeContext';
 import {
   InventoryItem,
   CreateInventoryItem,
@@ -19,29 +20,141 @@ import {
   UpcItemDbResponse,
 } from '@/types/inventory';
 
+interface StoreInventoryRequestDTO {
+  inventoryItemId?: number;
+  itemName?: string;
+  productName?: string;
+  sku?: string;
+  brandName?: string;
+  categoryDisplayName?: string;
+  subCategoryDisplayName?: string;
+  description?: string;
+  imageUrl?: string;
+  price: number;
+  stockQuantity: number;
+  taxEnabled: boolean;
+  active?: boolean;
+  seasonal?: boolean;
+  discontinued?: boolean;
+}
+
+function normalizeInventoryItem(payload: Record<string, unknown>): InventoryItem {
+  const itemName = (payload.itemName ?? payload.productName ?? payload.name ?? '') as string;
+  const productCode = (payload.productCode ?? payload.sku ?? payload.itemCode ?? '') as string;
+  const rawId = payload.id ?? payload.storeInventoryId ?? payload.inventoryId ?? payload.itemId ?? '';
+
+  return {
+    id: String(rawId),
+    inventoryItemId: payload.inventoryItemId ? Number(payload.inventoryItemId) : undefined,
+    itemName,
+    productName: (payload.productName as string) || undefined,
+    productCode,
+    sku: String(payload.sku ?? ''),
+    price: Number(payload.price ?? 0),
+    stockQuantity: Number(payload.stockQuantity ?? 0),
+    categories:
+      (payload.categories as string) ||
+      (payload.categoryDisplayName as string) ||
+      (payload.category as string) ||
+      undefined,
+    subCategory:
+      (payload.subCategory as string) ||
+      (payload.subCategoryDisplayName as string) ||
+      (payload.subcategory as string) ||
+      undefined,
+    brand: (payload.brand as string) || (payload.brandName as string) || undefined,
+    taxRate: payload.taxRate ? Number(payload.taxRate) : undefined,
+    taxEnabled: Boolean(payload.taxEnabled),
+    description: (payload.description as string) || undefined,
+    imageUrl: (payload.imageUrl as string) || undefined,
+    active: payload.active === undefined ? undefined : Boolean(payload.active),
+    seasonal: payload.seasonal === undefined ? undefined : Boolean(payload.seasonal),
+    discontinued: payload.discontinued === undefined ? undefined : Boolean(payload.discontinued),
+    modifiers: (payload.modifiers as string) || undefined,
+    labels: (payload.labels as string) || undefined,
+    fees: (payload.fees as string) || undefined,
+    calories: payload.calories ? Number(payload.calories) : undefined,
+    weight: payload.weight ? Number(payload.weight) : undefined,
+    weightUnit: (payload.weightUnit as string) || undefined,
+    popularityScore: payload.popularityScore ? Number(payload.popularityScore) : undefined,
+  };
+}
+
+function toStoreInventoryRequest(data: CreateInventoryItem | UpdateInventoryItem): StoreInventoryRequestDTO {
+  const fallbackSubcategoryCode =
+    'subcategoryCode' in data ? data.subcategoryCode : undefined;
+
+  const payload: StoreInventoryRequestDTO = {
+    inventoryItemId: data.inventoryItemId,
+    itemName: data.itemName,
+    productName: data.productName || data.itemName,
+    sku: data.sku,
+    brandName: data.brand,
+    categoryDisplayName: data.categories,
+    subCategoryDisplayName: data.subCategory || fallbackSubcategoryCode,
+    description: data.description,
+    imageUrl: data.imageUrl,
+    price: Number(data.price ?? 0),
+    stockQuantity: Number(data.stockQuantity ?? 0),
+    taxEnabled: Boolean(data.taxEnabled),
+    active: data.active ?? true,
+    seasonal: data.seasonal ?? false,
+    discontinued: data.discontinued ?? false,
+  };
+
+  return Object.entries(payload).reduce((accumulator, [key, value]) => {
+    if (value === undefined || value === '') return accumulator;
+    return {
+      ...accumulator,
+      [key]: value,
+    };
+  }, {} as StoreInventoryRequestDTO);
+}
+
 export const inventoryService = {
   async getInventory(): Promise<InventoryItem[]> {
     const client = await getApiClient();
-    const response = await client.get('/api/inventory');
-    return response.data;
+    const { storeId } = await resolveStoreContext();
+    const response = await client.get(`/api/stores/${encodeURIComponent(storeId)}/inventory`);
+    const rawItems = Array.isArray(response.data) ? response.data : [];
+    return rawItems.map((entry) => normalizeInventoryItem((entry ?? {}) as Record<string, unknown>));
   },
 
   async createInventory(data: CreateInventoryItem): Promise<InventoryItem> {
     const client = await getApiClient();
-    const response = await client.post('/api/inventory', data);
-    return response.data;
+    const { storeId } = await resolveStoreContext();
+    const response = await client.post(
+      `/api/stores/${encodeURIComponent(storeId)}/inventory`,
+      toStoreInventoryRequest(data)
+    );
+    return normalizeInventoryItem((response.data ?? {}) as Record<string, unknown>);
   },
 
   async getInventoryById(id: string): Promise<InventoryItem> {
     const client = await getApiClient();
-    const response = await client.get(`/api/inventory/${id}`);
-    return response.data;
+    const { storeId } = await resolveStoreContext();
+
+    try {
+      const response = await client.get(
+        `/api/stores/${encodeURIComponent(storeId)}/inventory/${encodeURIComponent(id)}`
+      );
+      return normalizeInventoryItem((response.data ?? {}) as Record<string, unknown>);
+    } catch {
+      const items = await this.getInventory();
+      const matchingItem = items.find((entry) => entry.id === id);
+      if (!matchingItem) throw new Error('Item not found');
+      return matchingItem;
+    }
   },
 
   async updateInventory(id: string, data: UpdateInventoryItem): Promise<InventoryItem> {
     const client = await getApiClient();
-    const response = await client.put(`/api/inventory/${id}`, data);
-    return response.data;
+    const { storeId } = await resolveStoreContext();
+    const response = await client.put(
+      `/api/stores/${encodeURIComponent(storeId)}/inventory/${encodeURIComponent(id)}`,
+      toStoreInventoryRequest(data)
+    );
+    return normalizeInventoryItem((response.data ?? {}) as Record<string, unknown>);
   },
 
   async deleteInventory(id: string): Promise<void> {
@@ -74,27 +187,26 @@ export const inventoryService = {
   },
 
   async getLowStock(threshold: number = 10): Promise<InventoryItem[]> {
-    const client = await getApiClient();
-    const response = await client.get(`/api/inventory/low-stock?threshold=${threshold}`);
-    return response.data;
+    const items = await this.getInventory();
+    return items.filter((item) => item.stockQuantity <= threshold);
   },
 
   async getByCategory(name: string): Promise<InventoryItem[]> {
-    const client = await getApiClient();
-    const response = await client.get(`/api/inventory/category/${encodeURIComponent(name)}`);
-    return response.data;
+    const items = await this.getInventory();
+    const query = name.toLowerCase();
+    return items.filter((item) => item.categories?.toLowerCase().includes(query));
   },
 
   async getBySubcategory(name: string): Promise<InventoryItem[]> {
-    const client = await getApiClient();
-    const response = await client.get(`/api/inventory/subcategory/${encodeURIComponent(name)}`);
-    return response.data;
+    const items = await this.getInventory();
+    const query = name.toLowerCase();
+    return items.filter((item) => item.subCategory?.toLowerCase().includes(query));
   },
 
   async getByBrand(name: string): Promise<InventoryItem[]> {
-    const client = await getApiClient();
-    const response = await client.get(`/api/inventory/brand/${encodeURIComponent(name)}`);
-    return response.data;
+    const items = await this.getInventory();
+    const query = name.toLowerCase();
+    return items.filter((item) => item.brand?.toLowerCase().includes(query));
   },
 
   async getDocs(): Promise<DocsResponse> {
@@ -299,5 +411,3 @@ export const inventoryService = {
     }
   },
 };
-
-

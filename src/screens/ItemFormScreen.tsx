@@ -147,9 +147,17 @@ export default function ItemFormScreen() {
   }, [selectedCategory, setValue]);
 
   const onSubmit = (data: InventoryItemFormData) => {
+    const categoryDisplayName =
+      categories?.find((category) => category.code === data.categories)?.displayName || data.categories;
+    const subCategoryDisplayName =
+      subcategories?.find((subcategory) => subcategory.code === data.subCategory)?.displayName ||
+      data.subCategory;
+
     // Prepare the payload, omitting null values for calories and weight
     const payload = {
       ...data,
+      categories: categoryDisplayName,
+      subCategory: subCategoryDisplayName,
       calories: data.calories || undefined,
       weight: data.weight || undefined,
       weightUnit: data.weightUnit || undefined,
@@ -452,7 +460,7 @@ export default function ItemFormScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Category</Text>
+            <Text style={styles.label}>Category *</Text>
             <Controller
               control={control}
               name="categories"
@@ -472,7 +480,7 @@ export default function ItemFormScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Subcategory</Text>
+            <Text style={styles.label}>Subcategory *</Text>
             <Controller
               control={control}
               name="subCategory"
@@ -491,7 +499,7 @@ export default function ItemFormScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Brand</Text>
+            <Text style={styles.label}>Brand *</Text>
             <Controller
               control={control}
               name="brand"

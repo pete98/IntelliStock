@@ -25,7 +25,8 @@ import BarcodeScannerScreen from '@/screens/BarcodeScannerScreen';
 import { LoginScreen } from '@/screens/LoginScreen';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { auth0Config } from '@/config/auth0';
-import { clearAccessToken, setAccessToken } from '@/utils/auth';
+import { clearAccessToken, setAccessToken, setAuth0Id } from '@/utils/auth';
+import { resolveStoreContext } from '@/utils/storeContext';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -151,10 +152,17 @@ function AuthGate() {
       }
 
       try {
+        if (user.sub) await setAuth0Id(user.sub);
         const credentials = await getCredentials();
         if (credentials?.accessToken) await setAccessToken(credentials.accessToken);
       } catch (error) {
         console.warn('Failed to load credentials:', error);
+      }
+
+      try {
+        await resolveStoreContext();
+      } catch (error) {
+        console.warn('Failed to resolve store context after login:', error);
       } finally {
         if (isMounted) setIsReady(true);
       }

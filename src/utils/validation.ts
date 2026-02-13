@@ -6,9 +6,9 @@ export const inventoryItemSchema = z.object({
   sku: z.string().min(1, 'SKU is required'),
   price: z.number().min(0, 'Price must be non-negative'),
   stockQuantity: z.number().min(0, 'Stock quantity must be non-negative'),
-  categories: z.string().optional(),
-  subCategory: z.string().optional(),
-  brand: z.string().optional(),
+  categories: z.string().min(1, 'Category is required'),
+  subCategory: z.string().min(1, 'Subcategory is required'),
+  brand: z.string().min(1, 'Brand is required'),
   modifiers: z.string().optional(),
   labels: z.string().optional(),
   taxRate: z.number().min(0).max(100).optional(),
@@ -29,6 +29,5 @@ export const updateInventoryItemSchema = inventoryItemSchema.partial();
 export type InventoryItemFormData = z.infer<typeof inventoryItemSchema>;
 export type CreateInventoryItemFormData = z.infer<typeof createInventoryItemSchema>;
 export type UpdateInventoryItemFormData = z.infer<typeof updateInventoryItemSchema>;
-
 
 

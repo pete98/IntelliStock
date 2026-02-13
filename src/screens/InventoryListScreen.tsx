@@ -13,7 +13,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '@/navigation/types';
-import { useInventoryList, useLowStock } from '@/hooks/useInventory';
+import { useInventoryList } from '@/hooks/useInventory';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorView } from '@/components/ErrorView';
 import { EmptyState } from '@/components/EmptyState';
@@ -30,12 +30,13 @@ export default function InventoryListScreen() {
   const [showLowStock, setShowLowStock] = useState(false);
 
   const { data: inventory, isLoading, error, refetch } = useInventoryList();
-  const { data: lowStockItems, isLoading: isLoadingLowStock } = useLowStock(10);
 
   const filteredInventory = useMemo(() => {
     if (!inventory) return [];
 
-    let items = showLowStock ? lowStockItems || [] : inventory;
+    let items = showLowStock
+      ? inventory.filter((item) => item.stockQuantity <= 10)
+      : inventory;
 
     if (searchQuery.trim()) {
       items = items.filter(item =>
@@ -46,7 +47,7 @@ export default function InventoryListScreen() {
     }
 
     return items;
-  }, [inventory, lowStockItems, searchQuery, showLowStock]);
+  }, [inventory, searchQuery, showLowStock]);
 
   const handleItemPress = (itemId: string) => {
     navigation.navigate('ItemDetail', { itemId });
@@ -74,7 +75,7 @@ export default function InventoryListScreen() {
     });
   };
 
-  if (isLoading || (showLowStock && isLoadingLowStock)) {
+  if (isLoading) {
     return <LoadingSpinner text="Loading inventory..." />;
   }
 

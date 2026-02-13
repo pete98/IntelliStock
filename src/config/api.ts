@@ -1,12 +1,23 @@
 import axios, { AxiosHeaders, AxiosInstance } from 'axios';
-import { getBaseUrl } from '@/utils/storage';
+import {
+  getBaseUrl,
+  getInventoryServiceBaseUrl,
+  getUserServiceBaseUrl,
+} from '@/utils/storage';
 import { handleApiError } from '@/utils/errorHandler';
-import { getAccessToken } from '@/utils/auth';
+import { getAccessToken, getInternalUserId } from '@/utils/auth';
 
-let apiClient: AxiosInstance | null = null;
+type ApiService = 'inventory' | 'user';
+const apiClients: Partial<Record<ApiService, AxiosInstance>> = {};
 
-export async function createApiClient(): Promise<AxiosInstance> {
-  const baseURL = await getBaseUrl();
+async function resolveBaseUrl(service: ApiService): Promise<string> {
+  if (service === 'user') return getUserServiceBaseUrl();
+  if (service === 'inventory') return getInventoryServiceBaseUrl();
+  return getBaseUrl();
+}
+
+export async function createApiClient(service: ApiService = 'inventory'): Promise<AxiosInstance> {
+  const baseURL = await resolveBaseUrl(service);
   
   const client = axios.create({
     baseURL,
@@ -20,6 +31,7 @@ export async function createApiClient(): Promise<AxiosInstance> {
   client.interceptors.request.use(
     async (config) => {
       const accessToken = await getAccessToken();
+      const ownerId = await getInternalUserId();
 
       if (accessToken) {
         const headers = AxiosHeaders.from(config.headers);
@@ -27,6 +39,7 @@ export async function createApiClient(): Promise<AxiosInstance> {
         config.headers = headers;
       }
 
+      console.log(`[API] ownerId=${ownerId ?? 'not-set'}`);
       console.log(`Making ${config.method?.toUpperCase()} request to ${config.url}`);
       return config;
     },
@@ -49,14 +62,27 @@ export async function createApiClient(): Promise<AxiosInstance> {
   return client;
 }
 
-export async function getApiClient(): Promise<AxiosInstance> {
-  if (!apiClient) {
-    apiClient = await createApiClient();
+export async function getApiClient(service: ApiService = 'inventory'): Promise<AxiosInstance> {
+  if (!apiClients[service]) {
+    apiClients[service] = await createApiClient(service);
   }
-  return apiClient;
+  return apiClients[service] as AxiosInstance;
 }
 
-export async function updateApiClientBaseUrl(): Promise<void> {
-  apiClient = await createApiClient();
+export async function getInventoryApiClient(): Promise<AxiosInstance> {
+  return getApiClient('inventory');
 }
 
+export async function getUserApiClient(): Promise<AxiosInstance> {
+  return getApiClient('user');
+}
+
+export async function updateApiClientBaseUrl(service?: ApiService): Promise<void> {
+  if (service) {
+    apiClients[service] = await createApiClient(service);
+    return;
+  }
+
+  apiClients.inventory = await createApiClient('inventory');
+  apiClients.user = await createApiClient('user');
+}
