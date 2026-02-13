@@ -6,11 +6,10 @@ import {
   CreateInventoryItem,
   UpdateInventoryItem,
   DocsResponse,
-  StockOperation,
-  CategoryFilter,
   BarcodeParseRequest,
   ParsedProductResponse,
   Category,
+  Brand,
   MeasurementUnit,
   Subcategory,
   CreateSubcategory,
@@ -18,7 +17,14 @@ import {
   EnrichRequest,
   EnrichResponse,
   UpcItemDbResponse,
+  MasterInventoryItem,
+  StoreProfile,
 } from '@/types/inventory';
+
+interface CategoryFilters {
+  storeType?: 'GROCERY' | 'CONVENIENCE';
+  storeEthnicity?: 'INDIAN' | 'AMERICAN';
+}
 
 interface StoreInventoryRequestDTO {
   inventoryItemId?: number;
@@ -80,6 +86,59 @@ function normalizeInventoryItem(payload: Record<string, unknown>): InventoryItem
   };
 }
 
+function normalizeMasterInventoryItem(payload: Record<string, unknown>): MasterInventoryItem {
+  return {
+    id: Number(payload.id ?? 0),
+    itemName: String(payload.itemName ?? ''),
+    sku: String(payload.sku ?? ''),
+    productId: payload.productId ? Number(payload.productId) : undefined,
+    productName: (payload.productName as string) || undefined,
+    categoryId: payload.categoryId ? Number(payload.categoryId) : undefined,
+    categoryCode: (payload.categoryCode as string) || undefined,
+    categoryDisplayName: (payload.categoryDisplayName as string) || undefined,
+    subCategoryId: payload.subCategoryId ? Number(payload.subCategoryId) : undefined,
+    subCategoryCode: (payload.subCategoryCode as string) || undefined,
+    subCategoryDisplayName: (payload.subCategoryDisplayName as string) || undefined,
+    brandId: payload.brandId ? Number(payload.brandId) : undefined,
+    brandName: (payload.brandName as string) || undefined,
+    modifiers: (payload.modifiers as string) || undefined,
+    labels: (payload.labels as string) || undefined,
+    description: (payload.description as string) || undefined,
+    imageUrl: (payload.imageUrl as string) || undefined,
+    calories: payload.calories ? Number(payload.calories) : undefined,
+    weight: payload.weight ? Number(payload.weight) : undefined,
+    weightUnit: (payload.weightUnit as string) || undefined,
+  };
+}
+
+function normalizeStoreProfile(payload: Record<string, unknown>): StoreProfile {
+  return {
+    id: Number(payload.id ?? 0),
+    displayName: String(payload.displayName ?? ''),
+    email: (payload.email as string) || undefined,
+    storeType:
+      payload.storeType === 'GROCERY' || payload.storeType === 'CONVENIENCE'
+        ? payload.storeType
+        : undefined,
+    storeEthnicity:
+      payload.storeEthnicity === 'INDIAN' || payload.storeEthnicity === 'AMERICAN'
+        ? payload.storeEthnicity
+        : undefined,
+    createdAt: (payload.createdAt as string) || undefined,
+    updatedAt: (payload.updatedAt as string) || undefined,
+  };
+}
+
+function normalizeBrand(payload: Record<string, unknown>): Brand {
+  return {
+    id: Number(payload.id ?? 0),
+    name: String(payload.name ?? ''),
+    slug: String(payload.slug ?? ''),
+    createdAt: (payload.createdAt as string) || undefined,
+    updatedAt: (payload.updatedAt as string) || undefined,
+  };
+}
+
 function toStoreInventoryRequest(data: CreateInventoryItem | UpdateInventoryItem): StoreInventoryRequestDTO {
   const fallbackSubcategoryCode =
     'subcategoryCode' in data ? data.subcategoryCode : undefined;
@@ -112,6 +171,33 @@ function toStoreInventoryRequest(data: CreateInventoryItem | UpdateInventoryItem
 }
 
 export const inventoryService = {
+  async getOwnerStores(ownerId?: string): Promise<StoreProfile[]> {
+    const client = await getApiClient();
+    const resolvedContext = ownerId ? null : await resolveStoreContext();
+    const resolvedOwnerId = ownerId ?? resolvedContext?.internalUserId;
+    if (!resolvedOwnerId) return [];
+
+    const response = await client.get('/api/stores/by-owner', {
+      params: { ownerId: resolvedOwnerId },
+    });
+    const stores = Array.isArray(response.data)
+      ? response.data
+      : Array.isArray((response.data as { stores?: unknown[] })?.stores)
+        ? (response.data as { stores: unknown[] }).stores
+        : [];
+    return stores.map((entry) => normalizeStoreProfile((entry ?? {}) as Record<string, unknown>));
+  },
+
+  async getSelectedStoreProfile(): Promise<StoreProfile> {
+    const { internalUserId, storeId } = await resolveStoreContext();
+    const ownerStores = await inventoryService.getOwnerStores(internalUserId);
+
+    const selectedStore = ownerStores.find((store) => String(store.id) === String(storeId));
+    if (selectedStore) return selectedStore;
+    if (ownerStores.length > 0) return ownerStores[0];
+    throw new Error('Unable to resolve selected store profile.');
+  },
+
   async getInventory(): Promise<InventoryItem[]> {
     const client = await getApiClient();
     const { storeId } = await resolveStoreContext();
@@ -209,6 +295,34 @@ export const inventoryService = {
     return items.filter((item) => item.brand?.toLowerCase().includes(query));
   },
 
+  async getMasterInventoryByCategory(code: string): Promise<MasterInventoryItem[]> {
+    const client = await getApiClient();
+    const response = await client.get(`/api/inventory/category/${encodeURIComponent(code)}`);
+    const items = Array.isArray(response.data) ? response.data : [];
+    return items.map((entry) => normalizeMasterInventoryItem((entry ?? {}) as Record<string, unknown>));
+  },
+
+  async getMasterInventoryBySubcategory(code: string): Promise<MasterInventoryItem[]> {
+    const client = await getApiClient();
+    const response = await client.get(`/api/inventory/subcategory/${encodeURIComponent(code)}`);
+    const items = Array.isArray(response.data) ? response.data : [];
+    return items.map((entry) => normalizeMasterInventoryItem((entry ?? {}) as Record<string, unknown>));
+  },
+
+  async getMasterInventoryByBrand(name: string): Promise<MasterInventoryItem[]> {
+    const client = await getApiClient();
+    const response = await client.get(`/api/inventory/brand/${encodeURIComponent(name)}`);
+    const items = Array.isArray(response.data) ? response.data : [];
+    return items.map((entry) => normalizeMasterInventoryItem((entry ?? {}) as Record<string, unknown>));
+  },
+
+  async getBrands(): Promise<Brand[]> {
+    const client = await getApiClient();
+    const response = await client.get('/api/brands');
+    const brands = Array.isArray(response.data) ? response.data : [];
+    return brands.map((entry) => normalizeBrand((entry ?? {}) as Record<string, unknown>));
+  },
+
   async getDocs(): Promise<DocsResponse> {
     const client = await getApiClient();
     const response = await client.get('/api/docs');
@@ -227,9 +341,13 @@ export const inventoryService = {
     return response.data;
   },
 
-  async getCategories(): Promise<Category[]> {
+  async getCategories(filters?: CategoryFilters): Promise<Category[]> {
     const client = await getApiClient();
-    const response = await client.get('/api/categories');
+    const params = {
+      storeType: filters?.storeType,
+      storeEthnicity: filters?.storeEthnicity,
+    };
+    const response = await client.get('/api/categories', { params });
     return response.data;
   },
 
@@ -273,9 +391,20 @@ export const inventoryService = {
   },
 
   async lookupUpcItem(productCode: string): Promise<UpcItemDbResponse> {
+    const requestStartedAt = Date.now();
+    const requestUrl = `https://api.upcitemdb.com/prod/trial/lookup?upc=${encodeURIComponent(productCode)}`;
+
+    console.log('[API][REQUEST]', {
+      requestId: `upc-${requestStartedAt}`,
+      service: 'external-upc',
+      method: 'GET',
+      url: requestUrl,
+      params: { upc: productCode },
+    });
+
     try {
       const response = await axios.get<UpcItemDbResponse>(
-        `https://api.upcitemdb.com/prod/trial/lookup?upc=${encodeURIComponent(productCode)}`,
+        requestUrl,
         {
           timeout: 10000,
           headers: {
@@ -283,6 +412,15 @@ export const inventoryService = {
           },
         }
       );
+
+      console.log('[API][RESPONSE]', {
+        requestId: `upc-${requestStartedAt}`,
+        service: 'external-upc',
+        method: 'GET',
+        url: requestUrl,
+        status: response.status,
+        durationMs: Date.now() - requestStartedAt,
+      });
       
       // Check if the API returned an error code in the response data
       if (response.data.code !== 'OK') {
@@ -319,6 +457,15 @@ export const inventoryService = {
       
       return response.data;
     } catch (error) {
+      console.log('[API][ERROR]', {
+        requestId: `upc-${requestStartedAt}`,
+        service: 'external-upc',
+        method: 'GET',
+        url: requestUrl,
+        durationMs: Date.now() - requestStartedAt,
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+
       // Re-throw if it's already an Error (from our code above)
       if (error instanceof Error && (
           error.message.includes('Invalid query') || 
