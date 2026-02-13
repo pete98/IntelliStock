@@ -5,6 +5,7 @@ import {
   UpdateInventoryItem,
   CreateSubcategory,
   UpdateSubcategory,
+  MasterSelectionDraft,
 } from '@/types/inventory';
 import { showSuccessToast } from '@/utils/errorHandler';
 
@@ -17,9 +18,15 @@ export const inventoryKeys = {
   detail: (id: string) => [...inventoryKeys.details(), id] as const,
   lowStock: (threshold: number) => [...inventoryKeys.all, 'lowStock', threshold] as const,
   category: (name: string) => [...inventoryKeys.all, 'category', name] as const,
-  categories: () => [...inventoryKeys.all, 'categories'] as const,
+  categories: (filters?: { storeType?: string; storeEthnicity?: string }) =>
+    [...inventoryKeys.all, 'categories', filters ?? {}] as const,
   measurementUnits: () => [...inventoryKeys.all, 'measurementUnits'] as const,
   docs: () => [...inventoryKeys.all, 'docs'] as const,
+  brands: () => [...inventoryKeys.all, 'brands'] as const,
+  masterCategory: (code: string) => [...inventoryKeys.all, 'masterCategory', code] as const,
+  masterSubcategory: (code: string) => [...inventoryKeys.all, 'masterSubcategory', code] as const,
+  masterBrand: (name: string) => [...inventoryKeys.all, 'masterBrand', name] as const,
+  selectedStoreProfile: () => [...inventoryKeys.all, 'selectedStoreProfile'] as const,
   subcategories: () => [...inventoryKeys.all, 'subcategories'] as const,
   subcategoriesByCategory: (categoryCode: string) =>
     [...inventoryKeys.subcategories(), 'category', categoryCode] as const,
@@ -80,10 +87,52 @@ export function useDocs() {
   });
 }
 
-export function useCategories() {
+export function useCategories(
+  filters?: { storeType?: 'GROCERY' | 'CONVENIENCE'; storeEthnicity?: 'INDIAN' | 'AMERICAN' },
+  enabled: boolean = true
+) {
   return useQuery({
-    queryKey: inventoryKeys.categories(),
-    queryFn: inventoryService.getCategories,
+    queryKey: inventoryKeys.categories(filters),
+    queryFn: () => inventoryService.getCategories(filters),
+    enabled,
+  });
+}
+
+export function useBrands() {
+  return useQuery({
+    queryKey: inventoryKeys.brands(),
+    queryFn: inventoryService.getBrands,
+  });
+}
+
+export function useMasterItemsByCategory(code: string, enabled: boolean = true) {
+  return useQuery({
+    queryKey: inventoryKeys.masterCategory(code),
+    queryFn: () => inventoryService.getMasterInventoryByCategory(code),
+    enabled: enabled && !!code,
+  });
+}
+
+export function useMasterItemsBySubcategory(code: string, enabled: boolean = true) {
+  return useQuery({
+    queryKey: inventoryKeys.masterSubcategory(code),
+    queryFn: () => inventoryService.getMasterInventoryBySubcategory(code),
+    enabled: enabled && !!code,
+  });
+}
+
+export function useMasterItemsByBrand(name: string, enabled: boolean = true) {
+  return useQuery({
+    queryKey: inventoryKeys.masterBrand(name),
+    queryFn: () => inventoryService.getMasterInventoryByBrand(name),
+    enabled: enabled && !!name,
+  });
+}
+
+export function useSelectedStoreProfile() {
+  return useQuery({
+    queryKey: inventoryKeys.selectedStoreProfile(),
+    queryFn: () => inventoryService.getSelectedStoreProfile(),
   });
 }
 
@@ -161,6 +210,91 @@ export function useStockOperations() {
   });
 }
 
+interface UpsertFailure {
+  item: MasterSelectionDraft;
+  message: string;
+}
+
+interface UpsertSummary {
+  added: number;
+  updated: number;
+  failed: UpsertFailure[];
+}
+
+export function useUpsertStoreInventoryFromMaster() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (selectedItems: MasterSelectionDraft[]): Promise<UpsertSummary> => {
+      const existingItems = await inventoryService.getInventory();
+      const existingByInventoryItemId = new Map<number, string>();
+
+      existingItems.forEach((item) => {
+        if (!item.inventoryItemId) return;
+        existingByInventoryItemId.set(item.inventoryItemId, item.id);
+      });
+
+      const operations = selectedItems.map(async (selectedItem) => {
+        const payload: CreateInventoryItem = {
+          inventoryItemId: selectedItem.inventoryItemId,
+          itemName: selectedItem.itemName,
+          productName: selectedItem.productName ?? selectedItem.itemName,
+          productCode: selectedItem.sku,
+          sku: selectedItem.sku,
+          price: Number(selectedItem.price),
+          stockQuantity: Number(selectedItem.stockQuantity),
+          categories: selectedItem.categoryDisplayName,
+          subCategory: selectedItem.subCategoryDisplayName,
+          brand: selectedItem.brandName,
+          taxEnabled: selectedItem.taxEnabled,
+          active: selectedItem.active,
+          seasonal: selectedItem.seasonal,
+          discontinued: selectedItem.discontinued,
+          description: selectedItem.description,
+          imageUrl: selectedItem.imageUrl,
+        };
+
+        const existingStoreInventoryId = existingByInventoryItemId.get(selectedItem.inventoryItemId);
+        if (!existingStoreInventoryId) {
+          await inventoryService.createInventory(payload);
+          return { type: 'added' as const };
+        }
+
+        await inventoryService.updateInventory(existingStoreInventoryId, payload);
+        return { type: 'updated' as const };
+      });
+
+      const settledResults = await Promise.allSettled(operations);
+      let added = 0;
+      let updated = 0;
+      const failed: UpsertFailure[] = [];
+
+      settledResults.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          if (result.value.type === 'added') added += 1;
+          if (result.value.type === 'updated') updated += 1;
+          return;
+        }
+
+        const reason = result.reason instanceof Error ? result.reason.message : 'Failed to save item.';
+        failed.push({
+          item: selectedItems[index],
+          message: reason,
+        });
+      });
+
+      return {
+        added,
+        updated,
+        failed,
+      };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.lists() });
+    },
+  });
+}
+
 // Subcategory queries
 export function useSubcategories(categoryCode?: string) {
   return useQuery({
@@ -227,6 +361,3 @@ export function useDeleteSubcategory() {
     },
   });
 }
-
-
-

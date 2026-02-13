@@ -148,6 +148,70 @@ export interface Category {
   id: number;
   code: string;
   displayName: string;
+  description?: string;
+  storeType?: 'GROCERY' | 'CONVENIENCE';
+  storeEthnicity?: 'INDIAN' | 'AMERICAN';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Brand {
+  id: number;
+  name: string;
+  slug: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface MasterInventoryItem {
+  id: number;
+  itemName: string;
+  sku: string;
+  productId?: number;
+  productName?: string;
+  categoryId?: number;
+  categoryCode?: string;
+  categoryDisplayName?: string;
+  subCategoryId?: number;
+  subCategoryCode?: string;
+  subCategoryDisplayName?: string;
+  brandId?: number;
+  brandName?: string;
+  modifiers?: string;
+  labels?: string;
+  description?: string;
+  imageUrl?: string;
+  calories?: number;
+  weight?: number;
+  weightUnit?: string;
+}
+
+export interface StoreProfile {
+  id: number;
+  displayName: string;
+  email?: string;
+  storeType?: 'GROCERY' | 'CONVENIENCE';
+  storeEthnicity?: 'INDIAN' | 'AMERICAN';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface MasterSelectionDraft {
+  inventoryItemId: number;
+  itemName: string;
+  productName?: string;
+  sku: string;
+  brandName?: string;
+  categoryDisplayName?: string;
+  subCategoryDisplayName?: string;
+  description?: string;
+  imageUrl?: string;
+  price: string;
+  stockQuantity: string;
+  taxEnabled: boolean;
+  active: boolean;
+  seasonal: boolean;
+  discontinued: boolean;
 }
 
 export interface MeasurementUnit {
@@ -225,4 +289,3 @@ export interface UpcItemDbResponse {
   offset: number;
   items: UpcItemDbItem[];
 }
-
