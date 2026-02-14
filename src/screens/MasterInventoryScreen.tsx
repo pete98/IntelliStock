@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -36,6 +36,18 @@ import { getResponsiveLayout } from '@/utils/layout';
 type ViewMode = 'categories' | 'brands';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'MasterInventory'>;
+const ui = {
+  primary: '#111111',
+  primaryStrong: '#111111',
+  primarySoft: '#FFFFFF',
+  text: '#111111',
+  muted: '#4B5563',
+  border: '#D1D5DB',
+  surface1: '#FFFFFF',
+  surface2: '#F3F4F6',
+  cardDark: '#FFFFFF',
+  cardBorderDark: '#D1D5DB',
+};
 
 interface GroupedItems {
   key: string;
@@ -45,6 +57,7 @@ interface GroupedItems {
 
 const expandHitSlop = { top: 10, bottom: 10, left: 10, right: 10 };
 const expandPressRetentionOffset = { top: 16, bottom: 16, left: 16, right: 16 };
+const MASTER_ITEMS_STALE_TIME_MS = 30 * 60 * 1000;
 
 function createSelectionDraft(item: MasterInventoryItem): MasterSelectionDraft {
   return {
@@ -237,6 +250,76 @@ export function MasterInventoryScreen() {
     [selectionState]
   );
 
+  useEffect(() => {
+    if (!categories.length) return;
+
+    async function prefetchCategoryItems() {
+      await Promise.all(
+        categories.map(async (category) => {
+          try {
+            const items = await queryClient.prefetchQuery({
+              queryKey: inventoryKeys.masterCategory(category.code),
+              queryFn: () => inventoryService.getMasterInventoryByCategory(category.code),
+              staleTime: MASTER_ITEMS_STALE_TIME_MS,
+            });
+
+            const cachedItems =
+              queryClient.getQueryData<MasterInventoryItem[]>(inventoryKeys.masterCategory(category.code)) ||
+              items ||
+              [];
+
+            setCategoryItemsByCode((previousState) => {
+              if (previousState[category.code]) return previousState;
+              return {
+                ...previousState,
+                [category.code]: cachedItems,
+              };
+            });
+          } catch (error) {
+            console.warn(`Failed to prefetch category ${category.code}:`, error);
+          }
+        })
+      );
+    }
+
+    void prefetchCategoryItems();
+  }, [categories, queryClient]);
+
+  useEffect(() => {
+    if (!brands.length) return;
+
+    async function prefetchBrandItems() {
+      await Promise.all(
+        brands.map(async (brand) => {
+          try {
+            const items = await queryClient.prefetchQuery({
+              queryKey: inventoryKeys.masterBrand(brand.name),
+              queryFn: () => inventoryService.getMasterInventoryByBrand(brand.name),
+              staleTime: MASTER_ITEMS_STALE_TIME_MS,
+            });
+
+            const cachedItems =
+              queryClient.getQueryData<MasterInventoryItem[]>(inventoryKeys.masterBrand(brand.name)) ||
+              items ||
+              [];
+
+            setBrandItemsByName((previousState) => {
+              if (previousState[brand.name]) return previousState;
+              return {
+                ...previousState,
+                [brand.name]: cachedItems,
+              };
+            });
+          } catch (error) {
+            console.warn(`Failed to prefetch brand ${brand.name}:`, error);
+          }
+        })
+      );
+    }
+
+    void prefetchBrandItems();
+  }, [brands, queryClient]);
+
   function setItemSelection(item: MasterInventoryItem, shouldSelect: boolean) {
     setSelectionState((previousState) => {
       if (!shouldSelect) {
@@ -360,6 +443,17 @@ export function MasterInventoryScreen() {
 
     if (!nextExpandedValue || categoryItemsByCode[categoryCode] || loadingCategoryCodes[categoryCode]) return;
 
+    const cachedItems = queryClient.getQueryData<MasterInventoryItem[]>(
+      inventoryKeys.masterCategory(categoryCode)
+    );
+    if (cachedItems) {
+      setCategoryItemsByCode((previousState) => ({
+        ...previousState,
+        [categoryCode]: cachedItems,
+      }));
+      return;
+    }
+
     setLoadingCategoryCodes((previousState) => ({
       ...previousState,
       [categoryCode]: true,
@@ -369,6 +463,7 @@ export function MasterInventoryScreen() {
       const items = await queryClient.fetchQuery({
         queryKey: inventoryKeys.masterCategory(categoryCode),
         queryFn: () => inventoryService.getMasterInventoryByCategory(categoryCode),
+        staleTime: MASTER_ITEMS_STALE_TIME_MS,
       });
 
       setCategoryItemsByCode((previousState) => ({
@@ -415,6 +510,17 @@ export function MasterInventoryScreen() {
 
     if (!nextExpandedValue || brandItemsByName[brandName] || loadingBrandNames[brandName]) return;
 
+    const cachedItems = queryClient.getQueryData<MasterInventoryItem[]>(
+      inventoryKeys.masterBrand(brandName)
+    );
+    if (cachedItems) {
+      setBrandItemsByName((previousState) => ({
+        ...previousState,
+        [brandName]: cachedItems,
+      }));
+      return;
+    }
+
     setLoadingBrandNames((previousState) => ({
       ...previousState,
       [brandName]: true,
@@ -424,6 +530,7 @@ export function MasterInventoryScreen() {
       const items = await queryClient.fetchQuery({
         queryKey: inventoryKeys.masterBrand(brandName),
         queryFn: () => inventoryService.getMasterInventoryByBrand(brandName),
+        staleTime: MASTER_ITEMS_STALE_TIME_MS,
       });
 
       setBrandItemsByName((previousState) => ({
@@ -495,7 +602,7 @@ export function MasterInventoryScreen() {
             />
           ) : (
             <View style={styles.itemImageFallback}>
-              <Ionicons name="image-outline" size={16} color="rgba(11, 11, 11, 0.45)" />
+              <Ionicons name="image-outline" size={16} color="#64748B" />
             </View>
           )}
 
@@ -513,7 +620,7 @@ export function MasterInventoryScreen() {
           onPress={() => toggleItemSelection(item)}
           style={[styles.checkbox, isSelected && styles.checkboxSelected]}
         >
-          {isSelected ? <Ionicons name="checkmark" size={14} color="#ffffff" /> : null}
+          {isSelected ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
         </Pressable>
       </View>
     );
@@ -552,7 +659,7 @@ export function MasterInventoryScreen() {
                   <Ionicons
                     name={isExpanded ? 'chevron-down' : 'chevron-forward'}
                     size={16}
-                    color="#0b0b0b"
+                    color="#111111"
                   />
                   <Text style={styles.groupTitle}>{category.displayName}</Text>
                 </Pressable>
@@ -610,7 +717,7 @@ export function MasterInventoryScreen() {
                                 <Ionicons
                                   name={isSubgroupExpanded ? 'chevron-down' : 'chevron-forward'}
                                   size={14}
-                                  color="rgba(11, 11, 11, 0.75)"
+                                  color="#64748B"
                                 />
                                 <Text style={styles.subgroupTitle}>{group.displayName}</Text>
                                 <Text style={styles.subgroupCount}>({group.items.length})</Text>
@@ -654,7 +761,7 @@ export function MasterInventoryScreen() {
                                           <Ionicons
                                             name={isBrandExpanded ? 'chevron-down' : 'chevron-forward'}
                                             size={13}
-                                            color="rgba(11, 11, 11, 0.75)"
+                                            color="#64748B"
                                           />
                                           <Text style={styles.brandTitle}>{brandGroup.displayName}</Text>
                                           <Text style={styles.subgroupCount}>({brandGroup.items.length})</Text>
@@ -719,7 +826,7 @@ export function MasterInventoryScreen() {
                 <Ionicons
                   name={isExpanded ? 'chevron-down' : 'chevron-forward'}
                   size={16}
-                  color="#0b0b0b"
+                  color="#111111"
                 />
                 <Text style={styles.ethnicityTitle}>
                   {ethnicity === 'INDIAN' ? 'Indian' : 'American'}
@@ -778,7 +885,7 @@ export function MasterInventoryScreen() {
                   <Ionicons
                     name={isExpanded ? 'chevron-down' : 'chevron-forward'}
                     size={16}
-                    color="#0b0b0b"
+                    color="#111111"
                   />
                   <Text style={styles.groupTitle}>{brand.name}</Text>
                 </Pressable>
@@ -878,13 +985,13 @@ export function MasterInventoryScreen() {
         </View>
 
         <View style={styles.searchRow}>
-          <Ionicons name="search" size={18} color="#0b0b0b" />
+          <Ionicons name="search" size={18} color={ui.primary} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search by name, SKU, category, or brand"
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholderTextColor="rgba(11, 11, 11, 0.45)"
+            placeholderTextColor="#64748B"
           />
         </View>
 
@@ -932,7 +1039,7 @@ export function MasterInventoryScreen() {
                     onChangeText={setBulkPrice}
                     keyboardType="decimal-pad"
                     placeholder="e.g. 2.99"
-                    placeholderTextColor="rgba(11, 11, 11, 0.4)"
+                    placeholderTextColor="#64748B"
                   />
                 </View>
                 <View style={styles.bulkInputGroup}>
@@ -943,7 +1050,7 @@ export function MasterInventoryScreen() {
                     onChangeText={setBulkQuantity}
                     keyboardType="number-pad"
                     placeholder="e.g. 20"
-                    placeholderTextColor="rgba(11, 11, 11, 0.4)"
+                    placeholderTextColor="#64748B"
                   />
                 </View>
               </View>
@@ -953,8 +1060,8 @@ export function MasterInventoryScreen() {
                 <Switch
                   value={bulkTaxEnabled}
                   onValueChange={setBulkTaxEnabled}
-                  trackColor={{ false: 'rgba(11, 11, 11, 0.2)', true: '#0b0b0b' }}
-                  thumbColor="#ffffff"
+                  trackColor={{ false: '#DCE3EA', true: ui.primary }}
+                  thumbColor="#111111"
                 />
               </View>
 
@@ -985,7 +1092,7 @@ export function MasterInventoryScreen() {
                         accessibilityLabel={`Remove ${selectedItem.itemName}`}
                         style={styles.removeButton}
                       >
-                        <Ionicons name="close" size={16} color="#0b0b0b" />
+                        <Ionicons name="close" size={16} color="#111111" />
                       </Pressable>
                     </View>
 
@@ -1000,7 +1107,7 @@ export function MasterInventoryScreen() {
                           }
                           keyboardType="decimal-pad"
                           placeholder="0.00"
-                          placeholderTextColor="rgba(11, 11, 11, 0.4)"
+                          placeholderTextColor="#64748B"
                         />
                       </View>
 
@@ -1014,7 +1121,7 @@ export function MasterInventoryScreen() {
                           }
                           keyboardType="number-pad"
                           placeholder="0"
-                          placeholderTextColor="rgba(11, 11, 11, 0.4)"
+                          placeholderTextColor="#64748B"
                         />
                       </View>
                     </View>
@@ -1026,8 +1133,8 @@ export function MasterInventoryScreen() {
                         onValueChange={(value) =>
                           updateSelectedItem(selectedItem.inventoryItemId, 'taxEnabled', value)
                         }
-                        trackColor={{ false: 'rgba(11, 11, 11, 0.2)', true: '#0b0b0b' }}
-                        thumbColor="#ffffff"
+                        trackColor={{ false: '#DCE3EA', true: ui.primary }}
+                        thumbColor="#111111"
                       />
                     </View>
                   </View>
@@ -1063,7 +1170,7 @@ export function MasterInventoryScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Close product details"
               >
-                <Ionicons name="close" size={16} color="#0b0b0b" />
+                <Ionicons name="close" size={16} color="#111111" />
               </Pressable>
             </View>
 
@@ -1076,7 +1183,7 @@ export function MasterInventoryScreen() {
               />
             ) : (
               <View style={styles.previewImageFallback}>
-                <Ionicons name="image-outline" size={30} color="rgba(11, 11, 11, 0.45)" />
+                <Ionicons name="image-outline" size={30} color="#64748B" />
               </View>
             )}
 
@@ -1111,7 +1218,7 @@ export function MasterInventoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
     paddingTop: theme.spacing.lg,
@@ -1119,16 +1226,21 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: theme.spacing.lg,
+    backgroundColor: ui.primarySoft,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: ui.border,
+    padding: theme.spacing.md,
   },
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#0b0b0b',
+    color: '#111111',
   },
   subtitle: {
     marginTop: 6,
     fontSize: theme.typography.body.fontSize,
-    color: 'rgba(11, 11, 11, 0.72)',
+    color: '#4B5563',
   },
   metaRow: {
     marginTop: theme.spacing.sm,
@@ -1140,40 +1252,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: '#0b0b0b',
+    backgroundColor: '#111111',
   },
   badgeText: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
   metaText: {
     fontSize: 12,
-    color: 'rgba(11, 11, 11, 0.6)',
+    color: '#4B5563',
     fontWeight: '600',
   },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.12)',
+    borderColor: '#DCE3EA',
     borderRadius: theme.borderRadius.lg,
     paddingHorizontal: theme.spacing.md,
-    backgroundColor: '#ffffff',
+    backgroundColor: ui.surface1,
     marginBottom: theme.spacing.md,
   },
   searchInput: {
     flex: 1,
     marginLeft: theme.spacing.sm,
     fontSize: 15,
-    color: '#0b0b0b',
+    color: '#111111',
     paddingVertical: 12,
   },
   viewToggleRow: {
     flexDirection: 'row',
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.12)',
+    borderColor: '#DCE3EA',
     borderRadius: theme.borderRadius.lg,
     marginBottom: theme.spacing.lg,
     overflow: 'hidden',
@@ -1183,20 +1295,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    backgroundColor: '#ffffff',
+    backgroundColor: ui.cardDark,
   },
   toggleButtonActive: {
-    backgroundColor: '#0b0b0b',
+    backgroundColor: ui.primary,
   },
   toggleButtonText: {
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
-    color: '#0b0b0b',
+    color: '#111111',
   },
   toggleButtonTextActive: {
-    color: '#ffffff',
+    color: '#FFFFFF',
   },
   panesRow: {
     flexDirection: 'column',
@@ -1225,13 +1337,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
-    color: 'rgba(11, 11, 11, 0.6)',
+    color: '#475569',
     marginBottom: theme.spacing.sm,
   },
   selectedSummary: {
     fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(11, 11, 11, 0.6)',
+    color: '#475569',
     marginBottom: theme.spacing.sm,
   },
   listStack: {
@@ -1239,16 +1351,16 @@ const styles = StyleSheet.create({
   },
   groupCard: {
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.08)',
+    borderColor: ui.cardBorderDark,
     borderRadius: theme.borderRadius.lg,
-    backgroundColor: '#ffffff',
+    backgroundColor: ui.cardDark,
     ...theme.shadows.sm,
   },
   ethnicityGroupCard: {
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.08)',
+    borderColor: ui.cardBorderDark,
     borderRadius: theme.borderRadius.lg,
-    backgroundColor: '#ffffff',
+    backgroundColor: ui.cardDark,
     ...theme.shadows.sm,
   },
   ethnicityHeaderButton: {
@@ -1262,7 +1374,7 @@ const styles = StyleSheet.create({
   ethnicityTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0b0b0b',
+    color: '#111111',
   },
   ethnicityContent: {
     paddingHorizontal: theme.spacing.md,
@@ -1287,19 +1399,20 @@ const styles = StyleSheet.create({
   groupTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0b0b0b',
+    color: '#111111',
   },
   groupAction: {
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.16)',
+    borderColor: '#111111',
     borderRadius: 999,
+    backgroundColor: '#111111',
   },
   groupActionText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#0b0b0b',
+    color: '#FFFFFF',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
@@ -1310,15 +1423,15 @@ const styles = StyleSheet.create({
   },
   inlineHint: {
     fontSize: 12,
-    color: 'rgba(11, 11, 11, 0.58)',
+    color: '#4B5563',
     fontStyle: 'italic',
   },
   subgroupCard: {
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.06)',
+    borderColor: ui.cardBorderDark,
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing.sm,
-    backgroundColor: '#fafafa',
+    backgroundColor: '#FFFFFF',
   },
   subgroupHeader: {
     flexDirection: 'row',
@@ -1338,18 +1451,18 @@ const styles = StyleSheet.create({
   subgroupTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0b0b0b',
+    color: '#111111',
   },
   subgroupCount: {
     fontSize: 12,
-    color: 'rgba(11, 11, 11, 0.55)',
+    color: '#4B5563',
   },
   brandCard: {
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.08)',
+    borderColor: ui.cardBorderDark,
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing.sm,
-    backgroundColor: '#ffffff',
+    backgroundColor: ui.cardDark,
   },
   brandHeader: {
     flexDirection: 'row',
@@ -1369,7 +1482,7 @@ const styles = StyleSheet.create({
   brandTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0b0b0b',
+    color: '#111111',
   },
   itemsStack: {
     gap: theme.spacing.xs,
@@ -1380,11 +1493,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: theme.spacing.sm,
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.08)',
+    borderColor: ui.cardBorderDark,
     borderRadius: theme.borderRadius.md,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 10,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FFFFFF',
   },
   itemPreviewButton: {
     flex: 1,
@@ -1397,16 +1510,16 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.08)',
-    backgroundColor: '#f4f4f5',
+    borderColor: '#DCE3EA',
+    backgroundColor: '#F3F4F6',
   },
   itemImageFallback: {
     width: 40,
     height: 40,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.08)',
-    backgroundColor: '#f4f4f5',
+    borderColor: '#DCE3EA',
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1416,40 +1529,40 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0b0b0b',
+    color: '#111111',
   },
   itemMeta: {
     marginTop: 2,
     fontSize: 12,
-    color: 'rgba(11, 11, 11, 0.6)',
+    color: '#4B5563',
   },
   checkbox: {
     width: 22,
     height: 22,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.4)',
+    borderColor: '#6B7280',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FFFFFF',
   },
   checkboxSelected: {
-    backgroundColor: '#0b0b0b',
-    borderColor: '#0b0b0b',
+    backgroundColor: ui.primary,
+    borderColor: ui.primary,
   },
   bulkCard: {
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.08)',
+    borderColor: ui.cardBorderDark,
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.md,
-    backgroundColor: '#ffffff',
+    backgroundColor: ui.cardDark,
     marginBottom: theme.spacing.md,
     ...theme.shadows.sm,
   },
   bulkTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0b0b0b',
+    color: '#111111',
     marginBottom: theme.spacing.sm,
   },
   bulkInputRow: {
@@ -1462,7 +1575,7 @@ const styles = StyleSheet.create({
   bulkLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(11, 11, 11, 0.6)',
+    color: '#4B5563',
     marginBottom: 6,
   },
   bulkTaxRow: {
@@ -1477,41 +1590,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: theme.borderRadius.md,
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.18)',
+    borderColor: '#6B7280',
+    backgroundColor: ui.primary,
     paddingVertical: 10,
   },
   bulkApplyButtonText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0b0b0b',
+    color: '#FFFFFF',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
   emptySelectedCard: {
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.08)',
+    borderColor: ui.cardBorderDark,
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.md,
-    backgroundColor: '#ffffff',
+    backgroundColor: ui.cardDark,
     ...theme.shadows.sm,
   },
   emptySelectedTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0b0b0b',
+    color: '#111111',
   },
   emptySelectedSubtitle: {
     marginTop: 6,
     fontSize: 12,
-    color: 'rgba(11, 11, 11, 0.6)',
+    color: '#4B5563',
   },
   selectedItemCard: {
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.08)',
+    borderColor: ui.cardBorderDark,
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.md,
-    backgroundColor: '#ffffff',
+    backgroundColor: ui.cardDark,
     ...theme.shadows.sm,
   },
   selectedItemHeader: {
@@ -1525,7 +1639,7 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 13,
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.15)',
+    borderColor: '#6B7280',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1539,17 +1653,17 @@ const styles = StyleSheet.create({
   },
   inlineInput: {
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.12)',
+    borderColor: '#6B7280',
     borderRadius: theme.borderRadius.md,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 8,
     fontSize: 14,
-    color: '#0b0b0b',
-    backgroundColor: '#ffffff',
+    color: '#111111',
+    backgroundColor: '#FFFFFF',
   },
   primaryButton: {
     marginTop: theme.spacing.lg,
-    backgroundColor: '#0b0b0b',
+    backgroundColor: ui.primaryStrong,
     borderRadius: theme.borderRadius.lg,
     paddingVertical: theme.spacing.md,
     alignItems: 'center',
@@ -1558,11 +1672,11 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#ffffff',
+    color: '#FFFFFF',
   },
   previewOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     padding: theme.spacing.lg,
@@ -1572,8 +1686,8 @@ const styles = StyleSheet.create({
     maxWidth: 520,
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.08)',
-    backgroundColor: '#ffffff',
+    borderColor: '#DCE3EA',
+    backgroundColor: '#FFFFFF',
     padding: theme.spacing.md,
   },
   previewHeader: {
@@ -1581,18 +1695,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: theme.spacing.md,
+    backgroundColor: ui.primarySoft,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: ui.border,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
   },
   previewTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0b0b0b',
+    color: '#111111',
   },
   previewCloseButton: {
     width: 28,
     height: 28,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.16)',
+    borderColor: '#DCE3EA',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1601,8 +1721,8 @@ const styles = StyleSheet.create({
     height: 260,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.08)',
-    backgroundColor: '#f4f4f5',
+    borderColor: '#DCE3EA',
+    backgroundColor: '#F3F4F6',
     marginBottom: theme.spacing.md,
   },
   previewImageFallback: {
@@ -1610,8 +1730,8 @@ const styles = StyleSheet.create({
     height: 260,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.08)',
-    backgroundColor: '#f4f4f5',
+    borderColor: '#DCE3EA',
+    backgroundColor: '#F3F4F6',
     marginBottom: theme.spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1619,12 +1739,12 @@ const styles = StyleSheet.create({
   previewName: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0b0b0b',
+    color: '#111111',
     marginBottom: 8,
   },
   previewMeta: {
     fontSize: 13,
-    color: 'rgba(11, 11, 11, 0.7)',
+    color: '#475569',
     marginBottom: 4,
   },
 });

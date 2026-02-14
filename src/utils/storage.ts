@@ -4,7 +4,8 @@ const BASE_URL_KEY = 'BASE_URL';
 const USER_SERVICE_BASE_URL_KEY = 'USER_SERVICE_BASE_URL';
 const INVENTORY_SERVICE_BASE_URL_KEY = 'INVENTORY_SERVICE_BASE_URL';
 const DEFAULT_BASE_URL = 'https://cd7ba7c78881.ngrok-free.app/';
-const DEFAULT_USER_SERVICE_BASE_URL = 'https://ujndmzdbevx2.share.zrok.io';
+const DEFAULT_USER_SERVICE_BASE_URL = 'https://3snjivztz81a.share.zrok.io';
+const LEGACY_USER_SERVICE_BASE_URL = 'https://ujndmzdbevx2.share.zrok.io';
 
 export async function getBaseUrl(): Promise<string> {
   try {
@@ -37,7 +38,11 @@ export async function resetBaseUrl(): Promise<void> {
 export async function getUserServiceBaseUrl(): Promise<string> {
   try {
     const storedUrl = await SecureStore.getItemAsync(USER_SERVICE_BASE_URL_KEY);
-    if (storedUrl) return storedUrl;
+    if (storedUrl && storedUrl !== LEGACY_USER_SERVICE_BASE_URL) return storedUrl;
+    if (storedUrl === LEGACY_USER_SERVICE_BASE_URL) {
+      await SecureStore.setItemAsync(USER_SERVICE_BASE_URL_KEY, DEFAULT_USER_SERVICE_BASE_URL);
+      return DEFAULT_USER_SERVICE_BASE_URL;
+    }
 
     return DEFAULT_USER_SERVICE_BASE_URL;
   } catch (error) {

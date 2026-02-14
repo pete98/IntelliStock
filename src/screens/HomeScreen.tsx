@@ -25,11 +25,11 @@ interface HomeScreenProps {}
 
 interface HomeColors {
   background: string;
+  headerTint: string;
+  headerBorder: string;
   text: string;
-  buttonBackground: string;
   buttonText: string;
   buttonMutedText: string;
-  buttonBorder: string;
   subtitle: string;
   heroBackground: string;
   heroBorder: string;
@@ -50,31 +50,35 @@ interface NavigationProp extends NativeStackNavigationProp<RootStackParamList, '
 function getHomeColors(colorScheme: 'light' | 'dark' | null | undefined): HomeColors {
   if (colorScheme === 'dark') {
     return {
-      background: '#0b0b0b',
-      text: '#ffffff',
-      subtitle: 'rgba(255, 255, 255, 0.72)',
-      buttonBackground: '#ffffff',
-      buttonText: '#0b0b0b',
-      buttonMutedText: 'rgba(11, 11, 11, 0.65)',
-      buttonBorder: 'rgba(11, 11, 11, 0.08)',
-      heroBackground: '#ffffff',
-      heroBorder: 'rgba(11, 11, 11, 0.08)',
-      heroSubtext: 'rgba(11, 11, 11, 0.7)',
+      background: '#FFFFFF',
+      headerTint: '#FFFFFF',
+      headerBorder: '#D1D5DB',
+      text: '#111111',
+      subtitle: '#4B5563',
+      buttonText: '#111111',
+      buttonMutedText: '#4B5563',
+      heroBackground: '#FFFFFF',
+      heroBorder: '#D1D5DB',
+      heroSubtext: '#4B5563',
     };
   }
 
   return {
-    background: '#ffffff',
-    text: '#0b0b0b',
-    subtitle: 'rgba(11, 11, 11, 0.68)',
-    buttonBackground: '#ffffff',
-    buttonText: '#0b0b0b',
-    buttonMutedText: 'rgba(11, 11, 11, 0.55)',
-    buttonBorder: 'rgba(11, 11, 11, 0.08)',
-    heroBackground: '#ffffff',
-    heroBorder: 'rgba(11, 11, 11, 0.08)',
-    heroSubtext: 'rgba(11, 11, 11, 0.7)',
+    background: '#FFFFFF',
+    headerTint: '#FFFFFF',
+    headerBorder: '#D1D5DB',
+    text: '#111111',
+    subtitle: '#4B5563',
+    buttonText: '#111111',
+    buttonMutedText: '#4B5563',
+    heroBackground: '#FFFFFF',
+    heroBorder: '#D1D5DB',
+    heroSubtext: '#4B5563',
   };
+}
+
+function getActionColor(index: number) {
+  return index % 2 === 0 ? '#FFFFFF' : '#F9FAFB';
 }
 
 function getHomeActions(): HomeAction[] {
@@ -156,7 +160,6 @@ export function HomeScreen(_props: HomeScreenProps) {
   const navigation = useNavigation<NavigationProp>();
   const queryClient = useQueryClient();
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const { width } = useWindowDimensions();
   const colors = getHomeColors(colorScheme);
   const horizontalPadding = theme.spacing.lg;
@@ -242,14 +245,17 @@ export function HomeScreen(_props: HomeScreenProps) {
             alignItems: 'center',
             paddingHorizontal: horizontalPadding,
             paddingBottom: theme.spacing.xxl,
+            backgroundColor: colors.background,
           }}
           showsVerticalScrollIndicator={false}
         >
           <Header style={{ width: contentWidth }}>
-            <Title style={{ color: colors.text }}>Dashboard</Title>
-            <Subtitle style={{ color: colors.subtitle }}>
-              Manage inventory, orders, pricing, and operations.
-            </Subtitle>
+            <HeaderPanel style={{ backgroundColor: colors.headerTint, borderColor: colors.headerBorder }}>
+              <Title style={{ color: colors.text }}>Dashboard</Title>
+              <Subtitle style={{ color: colors.subtitle }}>
+                Manage inventory, orders, pricing, and operations.
+              </Subtitle>
+            </HeaderPanel>
           </Header>
           <HeroCard
             style={[
@@ -284,9 +290,9 @@ export function HomeScreen(_props: HomeScreenProps) {
                   style={(state: { pressed: boolean }) => [
                     {
                       width: cardWidth,
-                      backgroundColor: colors.buttonBackground,
-                      borderColor: colors.buttonBorder,
-                      borderWidth: isDark ? 1 : 0.5,
+                      backgroundColor: getActionColor(index),
+                      borderColor: '#D1D5DB',
+                      borderWidth: 1,
                       opacity: state.pressed ? 0.9 : 1,
                     },
                     margins,
@@ -319,6 +325,13 @@ const ScrollArea = styled(ScrollView)`
 const Header = styled(View)`
   padding-top: ${theme.spacing.lg}px;
   padding-bottom: ${theme.spacing.lg}px;
+`;
+
+const HeaderPanel = styled(View)`
+  border-radius: ${theme.borderRadius.lg}px;
+  border-width: 1px;
+  border-color: #d1d5db;
+  padding: ${theme.spacing.lg}px;
 `;
 
 const Title = styled(Text)`
@@ -374,7 +387,7 @@ const HeroMeta = styled(Text)`
 `;
 
 const HeroButton = styled(Pressable)`
-  background-color: #0b0b0b;
+  background-color: #111111;
   padding-vertical: 10px;
   padding-horizontal: ${theme.spacing.lg}px;
   border-radius: 999px;

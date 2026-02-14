@@ -26,6 +26,16 @@ import { getResponsiveLayout } from '@/utils/layout';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'InventoryList'>;
 type InventoryListRouteProp = RouteProp<RootStackParamList, 'InventoryList'>;
+const colors = {
+  primary: '#111111',
+  primaryStrong: '#111111',
+  header: '#FFFFFF',
+  text: '#111111',
+  muted: '#4B5563',
+  border: '#D1D5DB',
+  surface: '#F3F4F6',
+  white: '#FFFFFF',
+};
 
 export default function InventoryListScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -114,13 +124,13 @@ export default function InventoryListScreen() {
         <View style={[styles.headerContent, { width: responsiveLayout.contentWidth }]}>
           <Text style={styles.title}>My Inventory</Text>
           <View style={styles.searchRow}>
-            <Ionicons name="search" size={18} color="#0b0b0b" />
+            <Ionicons name="search" size={18} color={colors.header} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search by category, name, or code..."
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholderTextColor="rgba(11, 11, 11, 0.5)"
+              placeholderTextColor="#475569"
             />
           </View>
           <View style={styles.actionRow}>
@@ -133,10 +143,10 @@ export default function InventoryListScreen() {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.iconButton} onPress={openBarcodeScanner}>
-              <Ionicons name="scan" size={18} color="#0b0b0b" />
+              <Ionicons name="scan" size={18} color={colors.white} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.iconButton} onPress={handleSettings}>
-              <Ionicons name="settings-outline" size={18} color="#0b0b0b" />
+              <Ionicons name="settings-outline" size={18} color={colors.white} />
             </TouchableOpacity>
           </View>
         </View>
@@ -163,8 +173,8 @@ export default function InventoryListScreen() {
                 <RefreshControl
                   refreshing={isFetching}
                   onRefresh={refetch}
-                  colors={['#0b0b0b']}
-                  tintColor="#0b0b0b"
+                  colors={[colors.primary]}
+                  tintColor={colors.primary}
                 />
               }
               contentContainerStyle={styles.listContent}
@@ -199,7 +209,7 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.header,
     alignItems: 'center',
   },
   headerContent: {
@@ -216,25 +226,25 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#0b0b0b',
+    color: colors.text,
     marginBottom: theme.spacing.md,
   },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.12)',
+    borderColor: colors.border,
     borderRadius: theme.borderRadius.lg,
     paddingHorizontal: theme.spacing.md,
     height: 44,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.white,
   },
   searchInput: {
     flex: 1,
     height: 44,
     paddingHorizontal: theme.spacing.sm,
     fontSize: 15,
-    color: '#0b0b0b',
+    color: colors.header,
   },
   actionRow: {
     flexDirection: 'row',
@@ -246,33 +256,32 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.12)',
-    backgroundColor: '#ffffff',
+    borderColor: '#111111',
+    backgroundColor: '#FFFFFF',
     marginRight: theme.spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   filterButtonActive: {
-    backgroundColor: '#0b0b0b',
-    borderColor: '#0b0b0b',
+    backgroundColor: '#111111',
+    borderColor: '#111111',
   },
   filterText: {
     fontSize: 12,
-    color: '#0b0b0b',
+    color: colors.text,
     fontWeight: '700',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
   filterTextActive: {
-    color: '#ffffff',
+    color: colors.white,
   },
   iconButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: 'rgba(11, 11, 11, 0.12)',
+    backgroundColor: '#111111',
+    borderWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: theme.spacing.sm,
@@ -288,7 +297,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#0b0b0b',
+    backgroundColor: colors.primaryStrong,
     justifyContent: 'center',
     alignItems: 'center',
     ...theme.shadows.md,
