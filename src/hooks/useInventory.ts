@@ -6,8 +6,16 @@ import {
   CreateSubcategory,
   UpdateSubcategory,
   MasterSelectionDraft,
+  InventoryItem,
 } from '@/types/inventory';
 import { showSuccessToast } from '@/utils/errorHandler';
+
+const TWO_MINUTES_MS = 2 * 60 * 1000;
+const TEN_MINUTES_MS = 10 * 60 * 1000;
+const THIRTY_MINUTES_MS = 30 * 60 * 1000;
+const ONE_HOUR_MS = 60 * 60 * 1000;
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const THIRTY_MINUTES_GC_MS = 30 * 60 * 1000;
 
 // Query keys
 export const inventoryKeys = {
@@ -38,14 +46,26 @@ export function useInventoryList() {
   return useQuery({
     queryKey: inventoryKeys.lists(),
     queryFn: inventoryService.getInventory,
+    staleTime: TWO_MINUTES_MS,
+    gcTime: THIRTY_MINUTES_GC_MS,
+    placeholderData: (previousData) => previousData,
   });
 }
 
 export function useInventoryItem(id: string) {
+  const queryClient = useQueryClient();
+
   return useQuery({
     queryKey: inventoryKeys.detail(id),
     queryFn: () => inventoryService.getInventoryById(id),
     enabled: !!id,
+    staleTime: TEN_MINUTES_MS,
+    gcTime: THIRTY_MINUTES_GC_MS,
+    placeholderData: () => {
+      const cachedInventory = queryClient.getQueryData<InventoryItem[]>(inventoryKeys.lists());
+      if (!cachedInventory?.length) return undefined;
+      return cachedInventory.find((inventoryItem) => inventoryItem.id === id);
+    },
   });
 }
 
@@ -84,6 +104,8 @@ export function useDocs() {
   return useQuery({
     queryKey: inventoryKeys.docs(),
     queryFn: inventoryService.getDocs,
+    staleTime: THIRTY_MINUTES_MS,
+    gcTime: ONE_DAY_MS,
   });
 }
 
@@ -95,6 +117,9 @@ export function useCategories(
     queryKey: inventoryKeys.categories(filters),
     queryFn: () => inventoryService.getCategories(filters),
     enabled,
+    staleTime: ONE_HOUR_MS,
+    gcTime: ONE_DAY_MS,
+    placeholderData: (previousData) => previousData,
   });
 }
 
@@ -102,6 +127,9 @@ export function useBrands() {
   return useQuery({
     queryKey: inventoryKeys.brands(),
     queryFn: inventoryService.getBrands,
+    staleTime: ONE_HOUR_MS,
+    gcTime: ONE_DAY_MS,
+    placeholderData: (previousData) => previousData,
   });
 }
 
@@ -133,6 +161,9 @@ export function useSelectedStoreProfile() {
   return useQuery({
     queryKey: inventoryKeys.selectedStoreProfile(),
     queryFn: () => inventoryService.getSelectedStoreProfile(),
+    staleTime: THIRTY_MINUTES_MS,
+    gcTime: ONE_DAY_MS,
+    retry: 1,
   });
 }
 
@@ -140,6 +171,9 @@ export function useMeasurementUnits() {
   return useQuery({
     queryKey: inventoryKeys.measurementUnits(),
     queryFn: inventoryService.getMeasurementUnits,
+    staleTime: ONE_HOUR_MS,
+    gcTime: ONE_DAY_MS,
+    placeholderData: (previousData) => previousData,
   });
 }
 

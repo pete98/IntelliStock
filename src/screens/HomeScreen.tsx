@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -11,10 +11,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
 import styled from 'styled-components/native';
 
+import { inventoryService } from '@/api/inventory.service';
 import { RootStackParamList } from '@/navigation/types';
+import { inventoryKeys } from '@/hooks/useInventory';
+import { StoreProfile } from '@/types/inventory';
 import { theme } from '@/config/theme';
 
 interface HomeScreenProps {}
@@ -150,6 +154,7 @@ function getGridItemMargins(index: number, columns: number, gap: number) {
 
 export function HomeScreen(_props: HomeScreenProps) {
   const navigation = useNavigation<NavigationProp>();
+  const queryClient = useQueryClient();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { width } = useWindowDimensions();
@@ -160,6 +165,50 @@ export function HomeScreen(_props: HomeScreenProps) {
   const gap = theme.spacing.md;
   const columns = getColumnCount(contentWidth, gap);
   const cardWidth = getCardWidth(contentWidth, columns, gap);
+
+  useEffect(() => {
+    async function prefetchCommonData() {
+      try {
+        await queryClient.prefetchQuery({
+          queryKey: inventoryKeys.selectedStoreProfile(),
+          queryFn: () => inventoryService.getSelectedStoreProfile(),
+          staleTime: 30 * 60 * 1000,
+        });
+
+        const cachedStoreProfile = queryClient.getQueryData<StoreProfile>(
+          inventoryKeys.selectedStoreProfile()
+        );
+        const categoryFilters = cachedStoreProfile
+          ? {
+              storeType: cachedStoreProfile.storeType,
+              storeEthnicity: cachedStoreProfile.storeEthnicity,
+            }
+          : undefined;
+
+        await Promise.all([
+          queryClient.prefetchQuery({
+            queryKey: inventoryKeys.lists(),
+            queryFn: () => inventoryService.getInventory(),
+            staleTime: 2 * 60 * 1000,
+          }),
+          queryClient.prefetchQuery({
+            queryKey: inventoryKeys.categories(categoryFilters),
+            queryFn: () => inventoryService.getCategories(categoryFilters),
+            staleTime: 60 * 60 * 1000,
+          }),
+          queryClient.prefetchQuery({
+            queryKey: inventoryKeys.measurementUnits(),
+            queryFn: () => inventoryService.getMeasurementUnits(),
+            staleTime: 60 * 60 * 1000,
+          }),
+        ]);
+      } catch (prefetchError) {
+        console.warn('Home prefetch failed:', prefetchError);
+      }
+    }
+
+    void prefetchCommonData();
+  }, [queryClient]);
 
   function handleActionPress(action: HomeAction) {
     const isReady = action.isReady ?? Boolean(action.route);

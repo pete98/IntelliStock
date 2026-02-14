@@ -90,8 +90,8 @@ export default function ItemDetailScreen() {
     setShowStockModal(false);
   }
 
-  if (isLoading) return <LoadingSpinner text="Loading item details..." />;
-  if (error || !item) return <ErrorView error={error} onRetry={() => {}} />;
+  if (isLoading && !item) return <LoadingSpinner text="Loading item details..." />;
+  if ((error || !item) && !item) return <ErrorView error={error} onRetry={() => {}} />;
 
   const stockColor = getStockBadgeColor(item.stockQuantity);
   const stockText = formatStock(item.stockQuantity);

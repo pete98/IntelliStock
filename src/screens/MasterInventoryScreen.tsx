@@ -29,7 +29,7 @@ import {
   useSelectedStoreProfile,
 } from '@/hooks/useInventory';
 import { RootStackParamList } from '@/navigation/types';
-import { MasterInventoryItem, MasterSelectionDraft } from '@/types/inventory';
+import { Category, MasterInventoryItem, MasterSelectionDraft } from '@/types/inventory';
 import { handleApiError } from '@/utils/errorHandler';
 import { getResponsiveLayout } from '@/utils/layout';
 
@@ -178,6 +178,12 @@ export function MasterInventoryScreen() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [expandedEthnicityGroups, setExpandedEthnicityGroups] = useState<
+    Record<'INDIAN' | 'AMERICAN', boolean>
+  >({
+    INDIAN: false,
+    AMERICAN: false,
+  });
   const [expandedSubcategories, setExpandedSubcategories] = useState<Record<string, boolean>>({});
   const [expandedCategoryBrands, setExpandedCategoryBrands] = useState<Record<string, boolean>>({});
   const [expandedBrands, setExpandedBrands] = useState<Record<string, boolean>>({});
@@ -205,9 +211,8 @@ export function MasterInventoryScreen() {
   const categoryFilters = useMemo(
     () => ({
       storeType: selectedStoreProfile?.storeType,
-      storeEthnicity: selectedStoreProfile?.storeEthnicity,
     }),
-    [selectedStoreProfile?.storeEthnicity, selectedStoreProfile?.storeType]
+    [selectedStoreProfile?.storeType]
   );
 
   const {
@@ -380,6 +385,13 @@ export function MasterInventoryScreen() {
     }
   }
 
+  function toggleEthnicityGroupExpansion(ethnicity: 'INDIAN' | 'AMERICAN') {
+    setExpandedEthnicityGroups((previousState) => ({
+      ...previousState,
+      [ethnicity]: !previousState[ethnicity],
+    }));
+  }
+
   function toggleSubcategoryExpansion(groupKey: string) {
     setExpandedSubcategories((previousState) => ({
       ...previousState,
@@ -516,9 +528,7 @@ export function MasterInventoryScreen() {
       return <ErrorView error={categoriesError} onRetry={() => refetchCategories()} />;
     }
 
-    return (
-      <View style={styles.listStack}>
-        {categories.map((category) => {
+    function renderCategoryCard(category: Category) {
           const isExpanded = Boolean(expandedCategories[category.code]);
           const items = categoryItemsByCode[category.code] ?? [];
           const isLoadingItems = Boolean(loadingCategoryCodes[category.code]);
@@ -677,6 +687,53 @@ export function MasterInventoryScreen() {
                         );
                       })
                     : null}
+                </View>
+              ) : null}
+            </View>
+          );
+    }
+
+    const categoriesByEthnicity = {
+      INDIAN: categories.filter((category) => category.storeEthnicity === 'INDIAN'),
+      AMERICAN: categories.filter((category) => category.storeEthnicity === 'AMERICAN'),
+    };
+
+    return (
+      <View style={styles.listStack}>
+        {(['INDIAN', 'AMERICAN'] as const).map((ethnicity) => {
+          const ethnicityCategories = categoriesByEthnicity[ethnicity];
+          const isExpanded = expandedEthnicityGroups[ethnicity];
+
+          return (
+            <View key={ethnicity} style={styles.ethnicityGroupCard}>
+              <Pressable
+                style={styles.ethnicityHeaderButton}
+                onPress={() => toggleEthnicityGroupExpansion(ethnicity)}
+                hitSlop={expandHitSlop}
+                pressRetentionOffset={expandPressRetentionOffset}
+                accessibilityRole="button"
+                accessibilityLabel={`${isExpanded ? 'Collapse' : 'Expand'} ${
+                  ethnicity === 'INDIAN' ? 'Indian' : 'American'
+                } categories`}
+              >
+                <Ionicons
+                  name={isExpanded ? 'chevron-down' : 'chevron-forward'}
+                  size={16}
+                  color="#0b0b0b"
+                />
+                <Text style={styles.ethnicityTitle}>
+                  {ethnicity === 'INDIAN' ? 'Indian' : 'American'}
+                </Text>
+                <Text style={styles.subgroupCount}>({ethnicityCategories.length})</Text>
+              </Pressable>
+
+              {isExpanded ? (
+                <View style={styles.ethnicityContent}>
+                  {ethnicityCategories.length === 0 ? (
+                    <Text style={styles.inlineHint}>No categories available.</Text>
+                  ) : (
+                    ethnicityCategories.map((category) => renderCategoryCard(category))
+                  )}
                 </View>
               ) : null}
             </View>
@@ -1024,17 +1081,26 @@ export function MasterInventoryScreen() {
             )}
 
             <Text style={styles.previewName}>{previewItem?.itemName}</Text>
+            <Text style={styles.previewMeta}>Product: {previewItem?.productName || '-'}</Text>
             <Text style={styles.previewMeta}>SKU: {previewItem?.sku || '-'}</Text>
             <Text style={styles.previewMeta}>Brand: {previewItem?.brandName || 'Unbranded'}</Text>
+            <Text style={styles.previewMeta}>
+              Calories: {previewItem?.calories !== undefined ? previewItem.calories : '-'}
+            </Text>
+            <Text style={styles.previewMeta}>
+              Weight:{' '}
+              {previewItem?.weight !== undefined
+                ? `${previewItem.weight}${previewItem.weightUnit ? ` ${previewItem.weightUnit}` : ''}`
+                : '-'}
+            </Text>
+            <Text style={styles.previewMeta}>Package Quantity: {previewItem?.packageQuantity || '-'}</Text>
+            <Text style={styles.previewMeta}>Total Servings: {previewItem?.totalServings || '-'}</Text>
             <Text style={styles.previewMeta}>
               Category: {previewItem?.categoryDisplayName || 'Other'}
             </Text>
             <Text style={styles.previewMeta}>
               Subcategory: {previewItem?.subCategoryDisplayName || 'Other'}
             </Text>
-            {previewItem?.description ? (
-              <Text style={styles.previewDescription}>{previewItem.description}</Text>
-            ) : null}
           </Pressable>
         </Pressable>
       </Modal>
@@ -1177,6 +1243,31 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     backgroundColor: '#ffffff',
     ...theme.shadows.sm,
+  },
+  ethnicityGroupCard: {
+    borderWidth: 1,
+    borderColor: 'rgba(11, 11, 11, 0.08)',
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: '#ffffff',
+    ...theme.shadows.sm,
+  },
+  ethnicityHeaderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 44,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 10,
+  },
+  ethnicityTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0b0b0b',
+  },
+  ethnicityContent: {
+    paddingHorizontal: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
   groupHeader: {
     padding: theme.spacing.md,
@@ -1478,7 +1569,7 @@ const styles = StyleSheet.create({
   },
   previewModal: {
     width: '100%',
-    maxWidth: 420,
+    maxWidth: 520,
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
     borderColor: 'rgba(11, 11, 11, 0.08)',
@@ -1507,7 +1598,7 @@ const styles = StyleSheet.create({
   },
   previewImage: {
     width: '100%',
-    height: 160,
+    height: 260,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: 'rgba(11, 11, 11, 0.08)',
@@ -1516,7 +1607,7 @@ const styles = StyleSheet.create({
   },
   previewImageFallback: {
     width: '100%',
-    height: 160,
+    height: 260,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: 'rgba(11, 11, 11, 0.08)',
@@ -1535,11 +1626,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: 'rgba(11, 11, 11, 0.7)',
     marginBottom: 4,
-  },
-  previewDescription: {
-    marginTop: theme.spacing.sm,
-    fontSize: 13,
-    lineHeight: 19,
-    color: 'rgba(11, 11, 11, 0.75)',
   },
 });

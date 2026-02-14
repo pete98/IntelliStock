@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import Toast from 'react-native-toast-message';
 import {
   Auth0Provider,
@@ -25,19 +25,13 @@ import BarcodeScannerScreen from '@/screens/BarcodeScannerScreen';
 import { LoginScreen } from '@/screens/LoginScreen';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { auth0Config } from '@/config/auth0';
+import { queryClient, persistOptions } from '@/config/queryClient';
 import { clearAccessToken, setAccessToken, setAuth0Id } from '@/utils/auth';
 import { resolveStoreContext } from '@/utils/storeContext';
+import { inventoryService } from '@/api/inventory.service';
+import { inventoryKeys } from '@/hooks/useInventory';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes
-    },
-  },
-});
 
 function createLocalAuthOptions() {
   return {
@@ -138,9 +132,39 @@ function UnauthenticatedStack() {
 function AuthGate() {
   const { user, isLoading, getCredentials } = useAuth0();
   const [isReady, setIsReady] = useState(false);
+  const hasShownStoreContextWarning = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
+
+    async function warmStoreContextAndCache() {
+      try {
+        await resolveStoreContext();
+
+        await Promise.all([
+          queryClient.prefetchQuery({
+            queryKey: inventoryKeys.selectedStoreProfile(),
+            queryFn: () => inventoryService.getSelectedStoreProfile(),
+            staleTime: 30 * 60 * 1000,
+          }),
+          queryClient.prefetchQuery({
+            queryKey: inventoryKeys.lists(),
+            queryFn: () => inventoryService.getInventory(),
+            staleTime: 2 * 60 * 1000,
+          }),
+        ]);
+      } catch (error) {
+        console.warn('Failed to resolve store context after login:', error);
+        if (hasShownStoreContextWarning.current) return;
+
+        hasShownStoreContextWarning.current = true;
+        Toast.show({
+          type: 'error',
+          text1: 'Store setup incomplete',
+          text2: 'Could not prepare store context. Open Inventory and tap retry.',
+        });
+      }
+    }
 
     async function syncSession() {
       setIsReady(false);
@@ -159,13 +183,9 @@ function AuthGate() {
         console.warn('Failed to load credentials:', error);
       }
 
-      try {
-        await resolveStoreContext();
-      } catch (error) {
-        console.warn('Failed to resolve store context after login:', error);
-      } finally {
-        if (isMounted) setIsReady(true);
-      }
+      if (!isMounted) return;
+      setIsReady(true);
+      void warmStoreContextAndCache();
     }
 
     syncSession();
@@ -183,7 +203,7 @@ function AuthGate() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
+      <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
         <Auth0Provider
           domain={auth0Config.domain}
           clientId={auth0Config.clientId}
@@ -194,7 +214,7 @@ export default function App() {
           </NavigationContainer>
         </Auth0Provider>
         <Toast />
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     </SafeAreaProvider>
   );
 }

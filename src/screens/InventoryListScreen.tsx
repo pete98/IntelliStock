@@ -13,12 +13,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { RootStackParamList } from '@/navigation/types';
-import { useInventoryList } from '@/hooks/useInventory';
+import { inventoryKeys, useInventoryList } from '@/hooks/useInventory';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorView } from '@/components/ErrorView';
 import { EmptyState } from '@/components/EmptyState';
 import { ItemCard } from '@/components/ItemCard';
+import { inventoryService } from '@/api/inventory.service';
 import { theme } from '@/config/theme';
 import { getResponsiveLayout } from '@/utils/layout';
 
@@ -27,13 +29,14 @@ type InventoryListRouteProp = RouteProp<RootStackParamList, 'InventoryList'>;
 
 export default function InventoryListScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const queryClient = useQueryClient();
   const route = useRoute<InventoryListRouteProp>();
   const { width } = useWindowDimensions();
   const responsiveLayout = getResponsiveLayout(width);
   const [searchQuery, setSearchQuery] = useState('');
   const [showLowStock, setShowLowStock] = useState(false);
 
-  const { data: inventory, isLoading, error, refetch } = useInventoryList();
+  const { data: inventory, isLoading, isFetching, error, refetch } = useInventoryList();
 
   const filteredInventory = useMemo(() => {
     if (!inventory) return [];
@@ -54,10 +57,28 @@ export default function InventoryListScreen() {
   }, [inventory, searchQuery, showLowStock]);
 
   const handleItemPress = (itemId: string) => {
+    void queryClient.prefetchQuery({
+      queryKey: inventoryKeys.detail(itemId),
+      queryFn: () => inventoryService.getInventoryById(itemId),
+      staleTime: 10 * 60 * 1000,
+    });
     navigation.navigate('ItemDetail', { itemId });
   };
 
   const handleAddItem = () => {
+    void Promise.all([
+      queryClient.prefetchQuery({
+        queryKey: inventoryKeys.categories(),
+        queryFn: () => inventoryService.getCategories(),
+        staleTime: 60 * 60 * 1000,
+      }),
+      queryClient.prefetchQuery({
+        queryKey: inventoryKeys.measurementUnits(),
+        queryFn: () => inventoryService.getMeasurementUnits(),
+        staleTime: 60 * 60 * 1000,
+      }),
+    ]);
+
     navigation.navigate('ItemForm', {});
   };
 
@@ -79,11 +100,11 @@ export default function InventoryListScreen() {
     });
   };
 
-  if (isLoading) {
+  if (isLoading && !inventory) {
     return <LoadingSpinner text="Loading inventory..." />;
   }
 
-  if (error) {
+  if (error && !inventory) {
     return <ErrorView error={error} onRetry={() => refetch()} />;
   }
 
@@ -140,7 +161,7 @@ export default function InventoryListScreen() {
               )}
               refreshControl={
                 <RefreshControl
-                  refreshing={isLoading}
+                  refreshing={isFetching}
                   onRefresh={refetch}
                   colors={['#0b0b0b']}
                   tintColor="#0b0b0b"
