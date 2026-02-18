@@ -78,6 +78,9 @@ export interface UpdateInventoryItem {
   calories?: number;
   weight?: number;
   weightUnit?: string;
+  measurementUnitId?: number;
+  packageQuantity?: string;
+  totalServings?: string;
 }
 
 export interface ApiError {
@@ -184,6 +187,9 @@ export interface MasterInventoryItem {
   calories?: number;
   weight?: number;
   weightUnit?: string;
+  measurementUnitId?: number;
+  packageQuantity?: string;
+  totalServings?: string;
 }
 
 export interface StoreProfile {

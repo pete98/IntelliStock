@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import styled from 'styled-components/native';
@@ -8,6 +8,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { theme } from '@/config/theme';
 import { RootStackParamList } from '@/navigation/types';
+import { getResponsiveLayout } from '@/utils/layout';
 
 interface LiveOrder {
   id: string;
@@ -47,47 +48,56 @@ function getMockOrders(): LiveOrder[] {
 
 export function LiveOrdersScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { width } = useWindowDimensions();
+  const responsiveLayout = getResponsiveLayout(width);
   const orders = getMockOrders();
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }} edges={['top', 'left', 'right']}>
       <ScrollView
-        contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl }}
+        contentContainerStyle={{
+          alignItems: 'center',
+          paddingHorizontal: responsiveLayout.horizontalPadding,
+          paddingTop: theme.spacing.lg,
+          paddingBottom: theme.spacing.xxl,
+        }}
         showsVerticalScrollIndicator={false}
       >
-        <Header>
-          <BackButton accessibilityRole="button" onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={20} color="#0b0b0b" />
-          </BackButton>
-          <Title>Live Orders</Title>
-          <Subtitle>Review and accept incoming orders.</Subtitle>
-        </Header>
+        <View style={{ width: responsiveLayout.contentWidth }}>
+          <Header>
+            <BackButton accessibilityRole="button" onPress={() => navigation.goBack()}>
+              <Ionicons name="arrow-back" size={20} color="#0b0b0b" />
+            </BackButton>
+            <Title>Live Orders</Title>
+            <Subtitle>Review and accept incoming orders.</Subtitle>
+          </Header>
 
-        <OrderList>
-          {orders.map(order => (
-            <OrderRow
-              key={order.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Review order for ${order.customerName}`}
-              onPress={() => navigation.navigate('OrderApproval')}
-            >
-              <OrderLeft>
-                <CustomerName>{order.customerName}</CustomerName>
-                <OrderMeta>ETA {order.eta}</OrderMeta>
-              </OrderLeft>
-              <StatusPill>
-                <StatusText>{order.fulfillment}</StatusText>
-              </StatusPill>
-            </OrderRow>
-          ))}
-        </OrderList>
+          <OrderList>
+            {orders.map(order => (
+              <OrderRow
+                key={order.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Review order for ${order.customerName}`}
+                onPress={() => navigation.navigate('OrderApproval')}
+              >
+                <OrderLeft>
+                  <CustomerName>{order.customerName}</CustomerName>
+                  <OrderMeta>ETA {order.eta}</OrderMeta>
+                </OrderLeft>
+                <StatusPill>
+                  <StatusText>{order.fulfillment}</StatusText>
+                </StatusPill>
+              </OrderRow>
+            ))}
+          </OrderList>
 
-        <PrimaryButton
-          accessibilityRole="button"
-          onPress={() => navigation.navigate('OrderApproval')}
-        >
-          <PrimaryButtonText>Review Selected</PrimaryButtonText>
-        </PrimaryButton>
+          <PrimaryButton
+            accessibilityRole="button"
+            onPress={() => navigation.navigate('OrderApproval')}
+          >
+            <PrimaryButtonText>Review Selected</PrimaryButtonText>
+          </PrimaryButton>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

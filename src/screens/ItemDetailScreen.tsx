@@ -8,18 +8,20 @@ import {
   Modal,
   StyleSheet,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Image } from 'expo-image';
+
 import { RootStackParamList } from '@/navigation/types';
 import { useInventoryItem, useDeleteInventory, useToggleTax, useStockOperations } from '@/hooks/useInventory';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorView } from '@/components/ErrorView';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Badge } from '@/components/Badge';
-import { theme } from '@/config/theme';
 import { formatCurrency, formatStock, getStockBadgeColor } from '@/utils/format';
+import { getResponsiveLayout } from '@/utils/layout';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'ItemDetail'>;
 type ItemDetailRouteProp = RouteProp<RootStackParamList, 'ItemDetail'>;
@@ -27,6 +29,8 @@ type ItemDetailRouteProp = RouteProp<RootStackParamList, 'ItemDetail'>;
 export default function ItemDetailScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<ItemDetailRouteProp>();
+  const { width } = useWindowDimensions();
+  const responsiveLayout = getResponsiveLayout(width);
   const { itemId } = route.params;
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -39,41 +43,41 @@ export default function ItemDetailScreen() {
   const toggleTaxMutation = useToggleTax();
   const stockMutation = useStockOperations();
 
-  const handleEdit = () => {
+  function handleEdit() {
     navigation.navigate('ItemForm', { itemId });
-  };
+  }
 
-  const handleDelete = () => {
+  function handleDelete() {
     setShowDeleteDialog(true);
-  };
+  }
 
-  const confirmDelete = () => {
+  function confirmDelete() {
     deleteMutation.mutate(itemId, {
       onSuccess: () => {
         navigation.navigate('InventoryList');
       },
     });
     setShowDeleteDialog(false);
-  };
+  }
 
-  const handleToggleTax = () => {
-    if (item) {
-      toggleTaxMutation.mutate({
-        id: itemId,
-        enabled: !item.taxEnabled,
-      });
-    }
-  };
+  function handleToggleTax() {
+    if (!item) return;
 
-  const handleStockOperation = (operation: 'add' | 'reduce') => {
+    toggleTaxMutation.mutate({
+      id: itemId,
+      enabled: !item.taxEnabled,
+    });
+  }
+
+  function handleStockOperation(operation: 'add' | 'reduce') {
     setStockOperation(operation);
     setStockQuantity('');
     setShowStockModal(true);
-  };
+  }
 
-  const confirmStockOperation = () => {
-    const quantity = parseInt(stockQuantity);
-    if (isNaN(quantity) || quantity <= 0) {
+  function confirmStockOperation() {
+    const quantity = parseInt(stockQuantity, 10);
+    if (Number.isNaN(quantity) || quantity <= 0) {
       Alert.alert('Invalid Quantity', 'Please enter a valid positive number');
       return;
     }
@@ -84,51 +88,46 @@ export default function ItemDetailScreen() {
       quantity,
     });
     setShowStockModal(false);
-  };
-
-  if (isLoading) {
-    return <LoadingSpinner text="Loading item details..." />;
   }
 
-  if (error || !item) {
-    return <ErrorView error={error} onRetry={() => {}} />;
-  }
+  if (isLoading && !item) return <LoadingSpinner text="Loading item details..." />;
+  if ((error || !item) && !item) return <ErrorView error={error} onRetry={() => {}} />;
 
   const stockColor = getStockBadgeColor(item.stockQuantity);
   const stockText = formatStock(item.stockQuantity);
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
-        {item.imageUrl && (
-          <View style={styles.imageContainer}>
-            <Image
-              source={{ uri: item.imageUrl }}
-              style={styles.image}
-              contentFit="cover"
-            />
-          </View>
-        )}
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{
+        alignItems: 'center',
+        paddingHorizontal: responsiveLayout.horizontalPadding,
+        paddingTop: 20,
+        paddingBottom: 40,
+      }}
+    >
+      <View style={{ width: responsiveLayout.contentWidth }}>
+        <View style={styles.heroCard}>
+          {item.imageUrl ? (
+            <View style={styles.imageContainer}>
+              <Image
+                source={{ uri: item.imageUrl }}
+                style={styles.image}
+                contentFit="cover"
+              />
+            </View>
+          ) : null}
 
-        <View style={styles.header}>
-          <Text style={styles.name}>{item.itemName}</Text>
-          <Text style={styles.code}>{item.productCode}</Text>
-          <Text style={styles.sku}>SKU: {item.sku}</Text>
+          <View style={styles.header}>
+            <Text style={styles.name}>{item.itemName}</Text>
+            <Text style={styles.code}>{item.productCode}</Text>
+            <Text style={styles.sku}>SKU: {item.sku}</Text>
+          </View>
         </View>
 
         <View style={styles.badges}>
-          <Badge
-            text={stockText}
-            color="#ffffff"
-            backgroundColor={stockColor}
-          />
-          {item.taxEnabled && (
-            <Badge
-              text="Tax Enabled"
-              color="#ffffff"
-              backgroundColor={theme.colors.secondary}
-            />
-          )}
+          <Badge text={stockText} color="#ffffff" backgroundColor={stockColor} />
+          {item.taxEnabled ? <Badge text="Tax Enabled" color="#ffffff" backgroundColor="#0b0b0b" /> : null}
         </View>
 
         <View style={styles.details}>
@@ -142,104 +141,99 @@ export default function ItemDetailScreen() {
             <Text style={styles.value}>{item.stockQuantity}</Text>
           </View>
 
-          {item.categories && (
+          {item.categories ? (
             <View style={styles.detailRow}>
               <Text style={styles.label}>Categories:</Text>
               <Text style={styles.value}>{item.categories}</Text>
             </View>
-          )}
+          ) : null}
 
-          {item.subCategory && (
+          {item.subCategory ? (
             <View style={styles.detailRow}>
               <Text style={styles.label}>Subcategory:</Text>
               <Text style={styles.value}>{item.subCategory}</Text>
             </View>
-          )}
+          ) : null}
 
-          {item.brand && (
+          {item.brand ? (
             <View style={styles.detailRow}>
               <Text style={styles.label}>Brand:</Text>
               <Text style={styles.value}>{item.brand}</Text>
             </View>
-          )}
+          ) : null}
 
-          {item.popularityScore !== undefined && item.popularityScore !== null && (
+          {item.popularityScore !== undefined && item.popularityScore !== null ? (
             <View style={styles.detailRow}>
               <Text style={styles.label}>Popularity Score:</Text>
               <Text style={styles.value}>{item.popularityScore}</Text>
             </View>
-          )}
+          ) : null}
 
-          {item.modifiers && (
+          {item.modifiers ? (
             <View style={styles.detailRow}>
               <Text style={styles.label}>Modifiers:</Text>
               <Text style={styles.value}>{item.modifiers}</Text>
             </View>
-          )}
+          ) : null}
 
-          {item.labels && (
+          {item.labels ? (
             <View style={styles.detailRow}>
               <Text style={styles.label}>Labels:</Text>
               <Text style={styles.value}>{item.labels}</Text>
             </View>
-          )}
+          ) : null}
 
-          {item.taxRate !== undefined && (
+          {item.taxRate !== undefined ? (
             <View style={styles.detailRow}>
               <Text style={styles.label}>Tax Rate:</Text>
               <Text style={styles.value}>{item.taxRate}%</Text>
             </View>
-          )}
+          ) : null}
 
-          {item.fees && (
+          {item.fees ? (
             <View style={styles.detailRow}>
               <Text style={styles.label}>Fees:</Text>
               <Text style={styles.value}>{item.fees}</Text>
             </View>
-          )}
+          ) : null}
 
-          {item.description && (
+          {item.description ? (
             <View style={styles.detailRow}>
               <Text style={styles.label}>Description:</Text>
               <Text style={styles.value}>{item.description}</Text>
             </View>
-          )}
+          ) : null}
         </View>
 
         <View style={styles.actions}>
-          <TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
-            <Text style={styles.actionText}>Edit</Text>
+          <TouchableOpacity style={[styles.actionButton, styles.primaryActionButton]} onPress={handleEdit}>
+            <Text style={styles.actionTextLight}>Edit</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, styles.taxButton]}
+            style={[styles.actionButton, styles.outlineActionButton]}
             onPress={handleToggleTax}
             disabled={toggleTaxMutation.isPending}
           >
-            <Text style={styles.actionText}>
-              {item.taxEnabled ? 'Disable Tax' : 'Enable Tax'}
-            </Text>
+            <Text style={styles.actionTextDark}>{item.taxEnabled ? 'Disable Tax' : 'Enable Tax'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, styles.stockButton]}
+            style={[styles.actionButton, styles.outlineActionButton]}
             onPress={() => handleStockOperation('add')}
           >
-            <Text style={styles.actionText}>Add Stock</Text>
+            <Text style={styles.actionTextDark}>Add Stock</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, styles.stockButton]}
+            style={[styles.actionButton, styles.outlineActionButton]}
             onPress={() => handleStockOperation('reduce')}
           >
-            <Text style={styles.actionText}>Reduce Stock</Text>
+            <Text style={styles.actionTextDark}>Reduce Stock</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.deleteButton]}
-            onPress={handleDelete}
-          >
-            <Text style={styles.actionText}>Delete</Text>
+          <TouchableOpacity style={[styles.actionButton, styles.deleteButton]} onPress={handleDelete}>
+            <Text style={styles.actionTextLight}>Delete</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -260,32 +254,24 @@ export default function ItemDetailScreen() {
         onRequestClose={() => setShowStockModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              {stockOperation === 'add' ? 'Add Stock' : 'Reduce Stock'}
-            </Text>
-            
+          <View style={[styles.modalContent, { maxWidth: responsiveLayout.isTablet ? 480 : 400 }]}>
+            <Text style={styles.modalTitle}>{stockOperation === 'add' ? 'Add Stock' : 'Reduce Stock'}</Text>
+
             <TextInput
               style={styles.quantityInput}
               placeholder="Enter quantity"
               value={stockQuantity}
               onChangeText={setStockQuantity}
               keyboardType="numeric"
-              placeholderTextColor={theme.colors.textSecondary}
+              placeholderTextColor="rgba(11, 11, 11, 0.45)"
             />
-            
+
             <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalButton}
-                onPress={() => setShowStockModal(false)}
-              >
+              <TouchableOpacity style={styles.modalButton} onPress={() => setShowStockModal(false)}>
                 <Text style={styles.modalButtonText}>Cancel</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalConfirmButton]}
-                onPress={confirmStockOperation}
-              >
+
+              <TouchableOpacity style={[styles.modalButton, styles.modalConfirmButton]} onPress={confirmStockOperation}>
                 <Text style={styles.modalConfirmText}>Confirm</Text>
               </TouchableOpacity>
             </View>
@@ -299,89 +285,106 @@ export default function ItemDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#f4f4f5',
   },
-  content: {
-    padding: theme.spacing.md,
+  heroCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(11, 11, 11, 0.08)',
+    backgroundColor: '#ffffff',
+    padding: 16,
+    marginBottom: 12,
   },
   imageContainer: {
     width: '100%',
     height: 200,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: 12,
     overflow: 'hidden',
-    marginBottom: theme.spacing.lg,
+    marginBottom: 16,
   },
   image: {
     width: '100%',
     height: '100%',
   },
   header: {
-    marginBottom: theme.spacing.md,
+    marginBottom: 4,
   },
   name: {
-    fontSize: theme.typography.h1.fontSize,
-    fontWeight: theme.typography.h1.fontWeight,
-    color: theme.colors.text,
-    marginBottom: theme.spacing.xs,
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#0b0b0b',
+    marginBottom: 4,
   },
   code: {
-    fontSize: theme.typography.body.fontSize,
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.xs,
+    fontSize: 15,
+    color: 'rgba(11, 11, 11, 0.62)',
+    marginBottom: 4,
   },
   sku: {
-    fontSize: theme.typography.caption.fontSize,
-    color: theme.colors.textSecondary,
+    fontSize: 12,
+    color: 'rgba(11, 11, 11, 0.55)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   badges: {
     flexDirection: 'row',
-    gap: theme.spacing.sm,
-    marginBottom: theme.spacing.lg,
+    gap: 8,
+    marginBottom: 16,
   },
   details: {
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.lg,
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(11, 11, 11, 0.08)',
+    padding: 16,
+    marginBottom: 18,
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing.sm,
+    marginBottom: 10,
   },
   label: {
-    fontSize: theme.typography.body.fontSize,
+    fontSize: 15,
     fontWeight: '600',
-    color: theme.colors.text,
+    color: '#0b0b0b',
     flex: 1,
   },
   value: {
-    fontSize: theme.typography.body.fontSize,
-    color: theme.colors.textSecondary,
+    fontSize: 15,
+    color: 'rgba(11, 11, 11, 0.72)',
     flex: 2,
     textAlign: 'right',
   },
   actions: {
-    gap: theme.spacing.md,
+    gap: 10,
   },
   actionButton: {
-    backgroundColor: theme.colors.primary,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
+    paddingVertical: 14,
+    borderRadius: 14,
     alignItems: 'center',
+    borderWidth: 1,
   },
-  taxButton: {
-    backgroundColor: theme.colors.secondary,
+  primaryActionButton: {
+    backgroundColor: '#0b0b0b',
+    borderColor: '#0b0b0b',
   },
-  stockButton: {
-    backgroundColor: theme.colors.warning,
+  outlineActionButton: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(11, 11, 11, 0.2)',
   },
   deleteButton: {
-    backgroundColor: theme.colors.error,
+    backgroundColor: '#dc2626',
+    borderColor: '#dc2626',
   },
-  actionText: {
-    color: theme.colors.background,
-    fontSize: theme.typography.body.fontSize,
+  actionTextLight: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  actionTextDark: {
+    color: '#0b0b0b',
+    fontSize: 15,
     fontWeight: '600',
   },
   modalOverlay: {
@@ -389,55 +392,56 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: theme.spacing.lg,
+    padding: 24,
   },
   modalContent: {
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(11, 11, 11, 0.08)',
+    padding: 20,
     width: '100%',
-    maxWidth: 400,
   },
   modalTitle: {
-    fontSize: theme.typography.h3.fontSize,
-    fontWeight: theme.typography.h3.fontWeight,
-    color: theme.colors.text,
-    marginBottom: theme.spacing.lg,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0b0b0b',
+    marginBottom: 20,
     textAlign: 'center',
   },
   quantityInput: {
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    fontSize: theme.typography.body.fontSize,
-    marginBottom: theme.spacing.lg,
-    backgroundColor: theme.colors.surface,
+    borderColor: 'rgba(11, 11, 11, 0.12)',
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 15,
+    marginBottom: 20,
+    backgroundColor: '#ffffff',
   },
   modalButtons: {
     flexDirection: 'row',
-    gap: theme.spacing.md,
+    gap: 10,
   },
   modalButton: {
     flex: 1,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
+    paddingVertical: 12,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: 'rgba(11, 11, 11, 0.15)',
     alignItems: 'center',
   },
   modalConfirmButton: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    backgroundColor: '#0b0b0b',
+    borderColor: '#0b0b0b',
   },
   modalButtonText: {
-    fontSize: theme.typography.body.fontSize,
-    color: theme.colors.textSecondary,
+    fontSize: 14,
+    color: '#0b0b0b',
     fontWeight: '600',
   },
   modalConfirmText: {
-    fontSize: theme.typography.body.fontSize,
-    color: theme.colors.background,
+    fontSize: 14,
+    color: '#ffffff',
     fontWeight: '600',
   },
 });

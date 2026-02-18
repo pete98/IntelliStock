@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -29,6 +30,7 @@ import { theme } from '@/config/theme';
 import { handleApiError, showSuccessToast } from '@/utils/errorHandler';
 import { inventoryItemSchema, InventoryItemFormData } from '@/utils/validation';
 import { parseWeight, mapCategoryToCode, extractLabels } from '@/utils/upcMapping';
+import { getResponsiveLayout } from '@/utils/layout';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'ItemForm'>;
 type RouteParams = RouteProp<RootStackParamList, 'ItemForm'>;
@@ -36,6 +38,8 @@ type RouteParams = RouteProp<RootStackParamList, 'ItemForm'>;
 export default function ItemFormScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteParams>();
+  const { width } = useWindowDimensions();
+  const responsiveLayout = getResponsiveLayout(width);
   const itemId = route.params?.itemId;
   const isEdit = !!itemId;
 
@@ -314,7 +318,15 @@ export default function ItemFormScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.form}>
+        <View
+          style={[
+            styles.form,
+            {
+              paddingHorizontal: responsiveLayout.horizontalPadding,
+            },
+          ]}
+        >
+          <View style={[styles.formContent, { width: responsiveLayout.contentWidth }]}>
           <View style={styles.field}>
             <Text style={styles.label}>Item Name *</Text>
             <Controller
@@ -358,7 +370,7 @@ export default function ItemFormScreen() {
                 onPress={openBarcodeScanner}
                 disabled={isLoading}
               >
-                <Ionicons name="scan" size={20} color={theme.colors.primary} />
+                <Ionicons name="scan" size={20} color="#0b0b0b" />
               </TouchableOpacity>
             </View>
             {errors.productCode && (
@@ -597,7 +609,7 @@ export default function ItemFormScreen() {
                 <Switch
                   value={value}
                   onValueChange={onChange}
-                  trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+                  trackColor={{ false: 'rgba(11, 11, 11, 0.2)', true: '#0b0b0b' }}
                   thumbColor={value ? theme.colors.background : theme.colors.textSecondary}
                 />
               )}
@@ -788,19 +800,22 @@ export default function ItemFormScreen() {
               <Text style={styles.errorText}>{errors.imageUrl.message}</Text>
             )}
           </View>
+          </View>
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.submitButton}
-          onPress={handleSubmit(onSubmit)}
-          disabled={isLoading}
-        >
-          <Text style={styles.submitText}>
-            {isLoading ? 'Saving...' : isEdit ? 'Update' : 'Create'}
-          </Text>
-        </TouchableOpacity>
+      <View style={[styles.footer, { paddingHorizontal: responsiveLayout.horizontalPadding }]}>
+        <View style={[styles.footerContent, { width: responsiveLayout.contentWidth }]}>
+          <TouchableOpacity
+            style={styles.submitButton}
+            onPress={handleSubmit(onSubmit)}
+            disabled={isLoading}
+          >
+            <Text style={styles.submitText}>
+              {isLoading ? 'Saving...' : isEdit ? 'Update' : 'Create'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Floating AI Button */}
@@ -824,13 +839,18 @@ export default function ItemFormScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#f4f4f5',
   },
   scrollView: {
     flex: 1,
   },
   form: {
-    padding: theme.spacing.md,
+    alignItems: 'center',
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
+  },
+  formContent: {
+    maxWidth: '100%',
   },
   field: {
     marginBottom: theme.spacing.lg,
@@ -843,12 +863,12 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.md,
+    borderColor: 'rgba(11, 11, 11, 0.12)',
+    borderRadius: 12,
     padding: theme.spacing.md,
     fontSize: theme.typography.body.fontSize,
-    backgroundColor: theme.colors.background,
-    color: theme.colors.text,
+    backgroundColor: '#ffffff',
+    color: '#0b0b0b',
   },
   inputError: {
     borderColor: theme.colors.error,
@@ -863,29 +883,33 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.xs,
   },
   footer: {
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.background,
+    paddingVertical: theme.spacing.md,
+    backgroundColor: '#ffffff',
     borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
+    borderTopColor: 'rgba(11, 11, 11, 0.1)',
+    alignItems: 'center',
+  },
+  footerContent: {
+    maxWidth: '100%',
   },
   submitButton: {
     paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.primary,
+    borderRadius: 12,
+    backgroundColor: '#0b0b0b',
     alignItems: 'center',
   },
   submitText: {
     fontSize: theme.typography.body.fontSize,
-    color: theme.colors.background,
+    color: '#ffffff',
     fontWeight: '600',
   },
   inputWithButton: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.background,
+    borderColor: 'rgba(11, 11, 11, 0.12)',
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
   },
   inputWithButtonText: {
     flex: 1,
@@ -900,11 +924,11 @@ const styles = StyleSheet.create({
   floatingAiButton: {
     position: 'absolute',
     bottom: 100,
-    right: 20,
+    right: 24,
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#0b0b0b',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 8,

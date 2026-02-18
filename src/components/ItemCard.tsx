@@ -11,6 +11,14 @@ interface ItemCardProps {
   onPress: () => void;
 }
 
+const cardColors = {
+  cardBackground: '#FFFFFF',
+  cardBorder: '#D1D5DB',
+  cardAccent: '#111111',
+  textOnCard: '#111111',
+  metaOnCard: '#4B5563',
+};
+
 export function ItemCard({ item, onPress }: ItemCardProps) {
   const stockColor = getStockBadgeColor(item.stockQuantity);
   const stockText = formatStock(item.stockQuantity);
@@ -48,7 +56,7 @@ export function ItemCard({ item, onPress }: ItemCardProps) {
             <Badge
               text="Tax"
               color="#ffffff"
-              backgroundColor={theme.colors.secondary}
+              backgroundColor={cardColors.cardAccent}
             />
           )}
         </View>
@@ -62,7 +70,9 @@ export function ItemCard({ item, onPress }: ItemCardProps) {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: theme.colors.background,
+    backgroundColor: cardColors.cardBackground,
+    borderWidth: 1,
+    borderColor: cardColors.cardBorder,
     borderRadius: theme.borderRadius.md,
     marginHorizontal: theme.spacing.md,
     marginVertical: theme.spacing.sm,
@@ -83,13 +93,13 @@ const styles = StyleSheet.create({
   placeholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
   },
   placeholderText: {
     fontSize: theme.typography.small.fontSize,
-    color: theme.colors.textSecondary,
+    color: cardColors.metaOnCard,
   },
   content: {
     flex: 1,
@@ -98,12 +108,12 @@ const styles = StyleSheet.create({
   name: {
     fontSize: theme.typography.h3.fontSize,
     fontWeight: theme.typography.h3.fontWeight,
-    color: theme.colors.text,
+    color: cardColors.textOnCard,
     marginBottom: theme.spacing.xs,
   },
   code: {
     fontSize: theme.typography.caption.fontSize,
-    color: theme.colors.textSecondary,
+    color: cardColors.metaOnCard,
     marginBottom: theme.spacing.sm,
   },
   badges: {
@@ -114,9 +124,7 @@ const styles = StyleSheet.create({
   price: {
     fontSize: theme.typography.body.fontSize,
     fontWeight: '600',
-    color: theme.colors.primary,
+    color: cardColors.textOnCard,
   },
 });
-
-
 

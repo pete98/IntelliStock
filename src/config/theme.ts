@@ -1,15 +1,15 @@
 export const theme = {
   colors: {
-    primary: '#3b82f6',
-    secondary: '#64748b',
+    primary: '#111111',
+    secondary: '#374151',
     background: '#ffffff',
-    surface: '#f8fafc',
-    text: '#1e293b',
-    textSecondary: '#64748b',
+    surface: '#FFFFFF',
+    text: '#111111',
+    textSecondary: '#4B5563',
     error: '#ef4444',
-    success: '#22c55e',
-    warning: '#f97316',
-    border: '#e2e8f0',
+    success: '#111111',
+    warning: '#F59E0B',
+    border: '#D1D5DB',
     disabled: '#94a3b8',
   },
   typography: {
@@ -75,6 +75,3 @@ export const theme = {
     },
   },
 };
-
-
-

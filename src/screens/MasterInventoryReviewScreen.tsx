@@ -7,6 +7,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
@@ -17,6 +18,7 @@ import { theme } from '@/config/theme';
 import { useUpsertStoreInventoryFromMaster } from '@/hooks/useInventory';
 import { RootStackParamList } from '@/navigation/types';
 import { MasterSelectionDraft } from '@/types/inventory';
+import { getResponsiveLayout } from '@/utils/layout';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type MasterInventoryReviewRouteProp = RouteProp<RootStackParamList, 'MasterInventoryReview'>;
@@ -54,6 +56,8 @@ function buildFailureMap(failedItems: Array<{ item: MasterSelectionDraft; messag
 export function MasterInventoryReviewScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<MasterInventoryReviewRouteProp>();
+  const { width } = useWindowDimensions();
+  const responsiveLayout = getResponsiveLayout(width);
   const upsertMutation = useUpsertStoreInventoryFromMaster();
 
   const [draftItems, setDraftItems] = useState<MasterSelectionDraft[]>(route.params?.selectedItems ?? []);
@@ -164,7 +168,17 @@ export function MasterInventoryReviewScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            alignItems: 'center',
+            paddingHorizontal: responsiveLayout.horizontalPadding,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={{ width: responsiveLayout.contentWidth }}>
         <View style={styles.header}>
           <Text style={styles.title}>Review Items</Text>
           <Text style={styles.subtitle}>{draftItems.length} items ready to save</Text>
@@ -266,6 +280,7 @@ export function MasterInventoryReviewScreen() {
         >
           <Text style={styles.secondaryButtonText}>Back to Edit</Text>
         </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -277,7 +292,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   scrollContent: {
-    padding: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing.xxl,
   },
   header: {

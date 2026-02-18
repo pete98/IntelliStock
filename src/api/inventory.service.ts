@@ -44,6 +44,19 @@ interface StoreInventoryRequestDTO {
   discontinued?: boolean;
 }
 
+function toOptionalString(value: unknown): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  const normalized = String(value).trim();
+  if (!normalized || normalized.toLowerCase() === 'null') return undefined;
+  return normalized;
+}
+
+function toOptionalNumber(value: unknown): number | undefined {
+  if (value === null || value === undefined || value === '') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function normalizeInventoryItem(payload: Record<string, unknown>): InventoryItem {
   const itemName = (payload.itemName ?? payload.productName ?? payload.name ?? '') as string;
   const productCode = (payload.productCode ?? payload.sku ?? payload.itemCode ?? '') as string;
@@ -91,23 +104,26 @@ function normalizeMasterInventoryItem(payload: Record<string, unknown>): MasterI
     id: Number(payload.id ?? 0),
     itemName: String(payload.itemName ?? ''),
     sku: String(payload.sku ?? ''),
-    productId: payload.productId ? Number(payload.productId) : undefined,
-    productName: (payload.productName as string) || undefined,
-    categoryId: payload.categoryId ? Number(payload.categoryId) : undefined,
-    categoryCode: (payload.categoryCode as string) || undefined,
-    categoryDisplayName: (payload.categoryDisplayName as string) || undefined,
-    subCategoryId: payload.subCategoryId ? Number(payload.subCategoryId) : undefined,
-    subCategoryCode: (payload.subCategoryCode as string) || undefined,
-    subCategoryDisplayName: (payload.subCategoryDisplayName as string) || undefined,
-    brandId: payload.brandId ? Number(payload.brandId) : undefined,
-    brandName: (payload.brandName as string) || undefined,
-    modifiers: (payload.modifiers as string) || undefined,
-    labels: (payload.labels as string) || undefined,
-    description: (payload.description as string) || undefined,
-    imageUrl: (payload.imageUrl as string) || undefined,
-    calories: payload.calories ? Number(payload.calories) : undefined,
-    weight: payload.weight ? Number(payload.weight) : undefined,
-    weightUnit: (payload.weightUnit as string) || undefined,
+    productId: toOptionalNumber(payload.productId),
+    productName: toOptionalString(payload.productName),
+    categoryId: toOptionalNumber(payload.categoryId),
+    categoryCode: toOptionalString(payload.categoryCode),
+    categoryDisplayName: toOptionalString(payload.categoryDisplayName),
+    subCategoryId: toOptionalNumber(payload.subCategoryId),
+    subCategoryCode: toOptionalString(payload.subCategoryCode),
+    subCategoryDisplayName: toOptionalString(payload.subCategoryDisplayName),
+    brandId: toOptionalNumber(payload.brandId),
+    brandName: toOptionalString(payload.brandName),
+    modifiers: toOptionalString(payload.modifiers),
+    labels: toOptionalString(payload.labels),
+    description: toOptionalString(payload.description),
+    imageUrl: toOptionalString(payload.imageUrl),
+    calories: toOptionalNumber(payload.calories),
+    weight: toOptionalNumber(payload.weight),
+    weightUnit: toOptionalString(payload.weightUnit),
+    measurementUnitId: toOptionalNumber(payload.measurementUnitId),
+    packageQuantity: toOptionalString(payload.packageQuantity),
+    totalServings: toOptionalString(payload.totalServings ?? payload.serving),
   };
 }
 
