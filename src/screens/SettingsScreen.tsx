@@ -198,7 +198,7 @@ export default function SettingsScreen() {
                   style={styles.input}
                   value={userBaseUrl}
                   onChangeText={setUserBaseUrl}
-                  placeholder="http://localhost:8081"
+                  placeholder="http://localhost:8087"
                   placeholderTextColor="rgba(11, 11, 11, 0.45)"
                   autoCapitalize="none"
                   autoCorrect={false}
