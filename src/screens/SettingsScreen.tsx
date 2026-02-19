@@ -184,7 +184,7 @@ export default function SettingsScreen() {
                   style={styles.input}
                   value={inventoryBaseUrl}
                   onChangeText={setInventoryBaseUrl}
-                  placeholder="http://localhost:8080"
+                  placeholder="https://8816-2600-4041-41f3-f300-d954-a29a-e130-5fb0.ngrok-free.app"
                   placeholderTextColor="rgba(11, 11, 11, 0.45)"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -198,7 +198,7 @@ export default function SettingsScreen() {
                   style={styles.input}
                   value={userBaseUrl}
                   onChangeText={setUserBaseUrl}
-                  placeholder="http://localhost:8087"
+                  placeholder="https://8816-2600-4041-41f3-f300-d954-a29a-e130-5fb0.ngrok-free.app"
                   placeholderTextColor="rgba(11, 11, 11, 0.45)"
                   autoCapitalize="none"
                   autoCorrect={false}

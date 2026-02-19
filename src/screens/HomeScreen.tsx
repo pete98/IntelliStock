@@ -93,7 +93,7 @@ function getHomeActions(): HomeAction[] {
       key: 'orders',
       label: 'Orders',
       icon: 'receipt-outline',
-      isReady: false,
+      route: 'Orders',
     },
     {
       key: 'scan',

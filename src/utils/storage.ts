@@ -3,8 +3,8 @@ import * as SecureStore from 'expo-secure-store';
 const BASE_URL_KEY = 'BASE_URL';
 const USER_SERVICE_BASE_URL_KEY = 'USER_SERVICE_BASE_URL';
 const INVENTORY_SERVICE_BASE_URL_KEY = 'INVENTORY_SERVICE_BASE_URL';
-const DEFAULT_BASE_URL = 'https://cd7ba7c78881.ngrok-free.app/';
-const DEFAULT_USER_SERVICE_BASE_URL = 'https://3snjivztz81a.share.zrok.io';
+const DEFAULT_BASE_URL = 'https://8816-2600-4041-41f3-f300-d954-a29a-e130-5fb0.ngrok-free.app';
+const DEFAULT_USER_SERVICE_BASE_URL = 'https://8816-2600-4041-41f3-f300-d954-a29a-e130-5fb0.ngrok-free.app';
 const LEGACY_USER_SERVICE_BASE_URL = 'https://ujndmzdbevx2.share.zrok.io';
 
 export async function getBaseUrl(): Promise<string> {

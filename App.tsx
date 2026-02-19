@@ -15,6 +15,7 @@ import { RootStackParamList } from '@/navigation/types';
 import { HomeScreen } from '@/screens/HomeScreen';
 import InventoryListScreen from '@/screens/InventoryListScreen';
 import { LiveOrdersScreen } from '@/screens/LiveOrdersScreen';
+import { OrdersScreen } from '@/screens/OrdersScreen';
 import { MasterInventoryScreen } from '@/screens/MasterInventoryScreen';
 import { MasterInventoryReviewScreen } from '@/screens/MasterInventoryReviewScreen';
 import { OrderApprovalScreen } from '@/screens/OrderApprovalScreen';
@@ -66,6 +67,11 @@ function AuthenticatedStack() {
       <Stack.Screen
         name="InventoryList"
         component={InventoryListScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Orders"
+        component={OrdersScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen

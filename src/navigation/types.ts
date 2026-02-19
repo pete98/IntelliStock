@@ -4,10 +4,11 @@ export type RootStackParamList = {
   Login: undefined;
   Home: undefined;
   InventoryList: { scannedBarcode?: string } | undefined;
+  Orders: undefined;
   LiveOrders: undefined;
   MasterInventory: undefined;
   MasterInventoryReview: { selectedItems: MasterSelectionDraft[] };
-  OrderApproval: undefined;
+  OrderApproval: { orderId: string };
   ItemDetail: { itemId: string };
   ItemForm: { itemId?: string; scannedBarcode?: string };
   Settings: undefined;

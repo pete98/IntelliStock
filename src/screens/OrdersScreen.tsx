@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,47 +11,26 @@ import { theme } from '@/config/theme';
 import { RootStackParamList } from '@/navigation/types';
 import { OrderSummary } from '@/types/order';
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'LiveOrders'>;
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Orders'>;
 
 function formatFulfillment(value?: string): string {
   if (!value) return 'Order';
   return value.charAt(0) + value.slice(1).toLowerCase();
 }
 
-function formatQueuedAt(createdAt?: string | null): string {
-  if (!createdAt) return 'Queued recently';
+function formatCreatedAt(createdAt?: string | null): string {
+  if (!createdAt) return 'Created recently';
   const parsed = new Date(createdAt);
-  if (Number.isNaN(parsed.getTime())) return 'Queued recently';
-  const deltaMinutes = Math.max(1, Math.round((Date.now() - parsed.getTime()) / 60000));
-  return `Queued ${deltaMinutes} min ago`;
+  if (Number.isNaN(parsed.getTime())) return 'Created recently';
+  return parsed.toLocaleString();
 }
 
-function isLiveOrder(order: OrderSummary): boolean {
-  const isPendingReview =
-    order.storeReviewStatus === 'PENDING' &&
-    order.paymentCollectionStatus === 'AUTHORIZED' &&
-    order.status !== 'READY_FOR_PICKUP' &&
-    order.status !== 'PICKED_UP' &&
-    order.status !== 'CANCELLED';
-  const isAcceptedAwaitingReady =
-    order.storeReviewStatus === 'ACCEPTED' &&
-    order.status !== 'READY_FOR_PICKUP' &&
-    order.status !== 'PICKED_UP' &&
-    order.status !== 'CANCELLED';
-  return isPendingReview || isAcceptedAwaitingReady;
-}
-
-export function LiveOrdersScreen() {
+export function OrdersScreen() {
   const navigation = useNavigation<NavigationProp>();
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const liveOrders = useMemo(
-    () => orders.filter(isLiveOrder),
-    [orders]
-  );
 
   const loadOrders = useCallback(async (refresh: boolean) => {
     if (refresh) setIsRefreshing(true);
@@ -62,8 +41,7 @@ export function LiveOrdersScreen() {
       const response = await orderService.listStoreOrders();
       setOrders(response);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unable to load live orders.';
+      const message = error instanceof Error ? error.message : 'Unable to load orders.';
       setErrorMessage(message);
     } finally {
       if (refresh) setIsRefreshing(false);
@@ -89,13 +67,13 @@ export function LiveOrdersScreen() {
           <BackButton accessibilityRole="button" onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={20} color="#0b0b0b" />
           </BackButton>
-          <Title>Live Orders</Title>
-          <Subtitle>Review incoming orders and route them to approval.</Subtitle>
+          <Title>Orders</Title>
+          <Subtitle>All store orders with status and actions.</Subtitle>
         </Header>
 
         <TopRow>
           <SummaryPill>
-            <SummaryText>{liveOrders.length} live</SummaryText>
+            <SummaryText>{orders.length} total</SummaryText>
           </SummaryPill>
           <RefreshButton accessibilityRole="button" onPress={() => void loadOrders(true)}>
             {isRefreshing ? (
@@ -109,7 +87,7 @@ export function LiveOrdersScreen() {
         {isLoading ? (
           <CenteredState>
             <ActivityIndicator size="small" color="#0b0b0b" />
-            <StateText>Loading live orders...</StateText>
+            <StateText>Loading orders...</StateText>
           </CenteredState>
         ) : null}
 
@@ -119,24 +97,24 @@ export function LiveOrdersScreen() {
           </ErrorCard>
         ) : null}
 
-        {!isLoading && !errorMessage && liveOrders.length === 0 ? (
+        {!isLoading && !errorMessage && orders.length === 0 ? (
           <CenteredState>
-            <StateText>No live orders right now.</StateText>
+            <StateText>No orders found for this store.</StateText>
           </CenteredState>
         ) : null}
 
         {!isLoading && !errorMessage ? (
           <OrderList>
-            {liveOrders.map(order => (
+            {orders.map(order => (
               <OrderRow
                 key={order.orderId}
                 accessibilityRole="button"
-                accessibilityLabel={`Review order ${order.orderId}`}
+                accessibilityLabel={`Open order ${order.orderId}`}
                 onPress={() => handleReviewOrder(order.orderId)}
               >
                 <OrderLeft>
                   <CustomerName>{order.customerName || `User #${order.userId}`}</CustomerName>
-                  <OrderMeta>{formatQueuedAt(order.createdAt)}</OrderMeta>
+                  <OrderMeta>{formatCreatedAt(order.createdAt)}</OrderMeta>
                   {order.customerPhone ? <OrderMeta>{order.customerPhone}</OrderMeta> : null}
                   <OrderMeta>
                     {order.storeReviewStatus ?? 'PENDING'} | {order.status}
@@ -149,15 +127,6 @@ export function LiveOrdersScreen() {
             ))}
           </OrderList>
         ) : null}
-
-        <PrimaryButton
-          accessibilityRole="button"
-          disabled={liveOrders.length === 0}
-          onPress={() => handleReviewOrder(liveOrders[0].orderId)}
-          style={{ opacity: liveOrders.length === 0 ? 0.5 : 1 }}
-        >
-          <PrimaryButtonText>Review First Live</PrimaryButtonText>
-        </PrimaryButton>
       </ScrollView>
     </SafeAreaView>
   );
@@ -230,7 +199,6 @@ const RefreshLabel = styled(Text)`
 
 const OrderList = styled(View)`
   gap: ${theme.spacing.sm}px;
-  margin-bottom: ${theme.spacing.xl}px;
 `;
 
 const OrderRow = styled(Pressable)`
@@ -282,39 +250,25 @@ const CenteredState = styled(View)`
   align-items: center;
   justify-content: center;
   padding-vertical: ${theme.spacing.xl}px;
+  gap: ${theme.spacing.sm}px;
 `;
 
 const StateText = styled(Text)`
-  margin-top: ${theme.spacing.sm}px;
   font-size: 14px;
-  color: rgba(11, 11, 11, 0.62);
+  font-weight: 600;
+  color: rgba(11, 11, 11, 0.6);
 `;
 
 const ErrorCard = styled(View)`
+  padding: ${theme.spacing.md}px;
   border-radius: ${theme.borderRadius.lg}px;
   border-width: 1px;
-  border-color: rgba(220, 38, 38, 0.25);
-  background-color: rgba(220, 38, 38, 0.08);
-  padding: ${theme.spacing.md}px;
-  margin-bottom: ${theme.spacing.md}px;
+  border-color: rgba(220, 38, 38, 0.3);
+  background-color: rgba(254, 242, 242, 0.8);
 `;
 
 const ErrorText = styled(Text)`
-  color: #991b1b;
-  font-size: 14px;
+  color: #b91c1c;
+  font-size: 13px;
   font-weight: 600;
-`;
-
-const PrimaryButton = styled(Pressable)`
-  background-color: #0b0b0b;
-  border-radius: ${theme.borderRadius.lg}px;
-  padding-vertical: ${theme.spacing.md}px;
-  align-items: center;
-  ${theme.shadows.sm};
-`;
-
-const PrimaryButtonText = styled(Text)`
-  color: #ffffff;
-  font-size: 16px;
-  font-weight: 700;
 `;
